@@ -260,9 +260,9 @@
                   type="number"
                   min="0"
                   max="1"
-                  step="0.1"
+                  step="0.01"
                   class="form-input"
-                  placeholder="0.9">
+                  placeholder="0.95">
               </div>
             </div>
 
