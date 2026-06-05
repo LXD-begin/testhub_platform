@@ -52,6 +52,15 @@ class UnderwritingCase(models.Model):
         on_delete=models.PROTECT,
         db_comment='关联试算单',
     )
+    application = models.ForeignKey(
+        'InsuranceApplication',
+        verbose_name='关联投保单',
+        related_name='underwriting_cases',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        db_comment='关联投保单；兼容旧试算核保接口时允许为空',
+    )
     decision = models.CharField('核保结论', max_length=20, choices=Decision.choices, db_comment='核保结论')
     risk_level = models.CharField('风险等级', max_length=16, db_comment='风险等级')
     reasons = models.JSONField('核保原因', default=list, db_comment='核保原因')
@@ -70,6 +79,138 @@ class UnderwritingCase(models.Model):
         return self.uw_no
 
 
+class InsuranceApplication(models.Model):
+    """投保单。
+
+    真实保险公司一般不会直接用试算单出单，而是先形成投保申请。
+    投保单负责沉淀客户告知、受益人、条款确认、核保、支付和出单状态。
+    """
+
+    class Status(models.TextChoices):
+        CREATED = 'CREATED', '已创建'
+        SUBMITTED = 'SUBMITTED', '已提交'
+        UNDERWRITING_APPROVED = 'UNDERWRITING_APPROVED', '核保通过'
+        UNDERWRITING_REFERRED = 'UNDERWRITING_REFERRED', '待人工核保'
+        UNDERWRITING_DECLINED = 'UNDERWRITING_DECLINED', '核保拒保'
+        PAYMENT_PENDING = 'PAYMENT_PENDING', '待支付'
+        PAID = 'PAID', '已支付'
+        ISSUED = 'ISSUED', '已出单'
+        CLOSED = 'CLOSED', '已关闭'
+
+    application_no = models.CharField('投保单号', max_length=32, unique=True, db_index=True, db_comment='投保单号')
+    quote = models.OneToOneField(
+        PremiumQuote,
+        verbose_name='关联试算单',
+        related_name='application',
+        on_delete=models.PROTECT,
+        db_comment='关联试算单',
+    )
+    status = models.CharField('投保单状态', max_length=32, choices=Status.choices, default=Status.CREATED, db_comment='投保单状态')
+    applicant = models.JSONField('投保人信息', db_comment='投保人信息')
+    insured = models.JSONField('被保人信息', db_comment='被保人信息')
+    disclosures = models.JSONField('核保告知信息', default=dict, db_comment='核保告知信息')
+    beneficiary_type = models.CharField('受益人类型', max_length=16, default='LEGAL', db_comment='LEGAL 法定；DESIGNATED 指定')
+    beneficiaries = models.JSONField('指定受益人列表', default=list, db_comment='指定受益人列表')
+    consents = models.JSONField('投保确认信息', default=dict, db_comment='条款、免责、电子保单等确认留痕')
+    channel_code = models.CharField('渠道代码', max_length=32, db_comment='渠道代码')
+    submitted_at = models.DateTimeField('提交时间', null=True, blank=True, db_comment='提交核保时间')
+    created_at = models.DateTimeField('创建时间', auto_now_add=True, db_comment='创建时间')
+    updated_at = models.DateTimeField('更新时间', auto_now=True, db_comment='更新时间')
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = '投保单'
+        verbose_name_plural = '投保单'
+        db_table_comment = '投保单表'
+
+    def __str__(self):
+        return self.application_no
+
+
+class PaymentOrder(models.Model):
+    """支付订单。
+
+    真实出单前必须以服务端支付订单和支付回调为准，不能只相信前端传入的支付成功标识。
+    """
+
+    class Status(models.TextChoices):
+        CREATED = 'CREATED', '已创建'
+        SUCCESS = 'SUCCESS', '支付成功'
+        FAILED = 'FAILED', '支付失败'
+        CLOSED = 'CLOSED', '已关闭'
+
+    pay_order_no = models.CharField('支付订单号', max_length=32, unique=True, db_index=True, db_comment='支付订单号')
+    application = models.ForeignKey(
+        InsuranceApplication,
+        verbose_name='关联投保单',
+        related_name='payment_orders',
+        on_delete=models.PROTECT,
+        db_comment='关联投保单',
+    )
+    quote = models.ForeignKey(
+        PremiumQuote,
+        verbose_name='关联试算单',
+        related_name='payment_orders',
+        on_delete=models.PROTECT,
+        db_comment='关联试算单',
+    )
+    underwriting = models.ForeignKey(
+        UnderwritingCase,
+        verbose_name='关联核保记录',
+        related_name='payment_orders',
+        on_delete=models.PROTECT,
+        db_comment='关联核保记录',
+    )
+    amount = models.DecimalField('应付金额', max_digits=10, decimal_places=2, db_comment='应付金额')
+    status = models.CharField('支付状态', max_length=20, choices=Status.choices, default=Status.CREATED, db_comment='支付状态')
+    pay_channel = models.CharField('支付渠道', max_length=32, default='MOCK', db_comment='支付渠道')
+    external_trade_no = models.CharField('外部交易流水号', max_length=64, blank=True, db_comment='外部交易流水号')
+    notify_payload = models.JSONField('支付通知原文', default=dict, db_comment='支付通知原文')
+    paid_at = models.DateTimeField('支付成功时间', null=True, blank=True, db_comment='支付成功时间')
+    created_at = models.DateTimeField('创建时间', auto_now_add=True, db_comment='创建时间')
+    updated_at = models.DateTimeField('更新时间', auto_now=True, db_comment='更新时间')
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = '支付订单'
+        verbose_name_plural = '支付订单'
+        db_table_comment = '支付订单表'
+
+    def __str__(self):
+        return self.pay_order_no
+
+
+class ManualUnderwritingReview(models.Model):
+    """人工核保复核记录。
+
+    当自动核保返回 REFERRED 时，人工核保员可给出最终通过、拒保或继续转人工的结论。
+    """
+
+    review_no = models.CharField('人工核保单号', max_length=32, unique=True, db_index=True, db_comment='人工核保单号')
+    underwriting = models.OneToOneField(
+        UnderwritingCase,
+        verbose_name='关联核保记录',
+        related_name='manual_review',
+        on_delete=models.PROTECT,
+        db_comment='关联核保记录',
+    )
+    decision = models.CharField('人工核保结论', max_length=20, choices=UnderwritingCase.Decision.choices, db_comment='人工核保结论')
+    risk_level = models.CharField('人工评定风险等级', max_length=16, db_comment='人工评定风险等级')
+    reasons = models.JSONField('人工核保原因', default=list, db_comment='人工核保原因')
+    review_notes = models.TextField('复核备注', blank=True, db_comment='复核备注')
+    reviewer = models.CharField('复核人员', max_length=64, db_comment='复核人员')
+    reviewed_at = models.DateTimeField('复核时间', auto_now_add=True, db_comment='复核时间')
+
+    class Meta:
+        ordering = ['-reviewed_at']
+        verbose_name = '人工核保复核记录'
+        verbose_name_plural = '人工核保复核记录'
+        db_table_comment = '人工核保复核记录表'
+
+    def __str__(self):
+        return self.review_no
+
+
 class Policy(models.Model):
     """保单。"""
 
@@ -78,6 +219,15 @@ class Policy(models.Model):
         CANCELLED = 'CANCELLED', '已撤单'
 
     policy_no = models.CharField('保单号', max_length=32, unique=True, db_index=True, db_comment='保单号')
+    application = models.OneToOneField(
+        InsuranceApplication,
+        verbose_name='关联投保单',
+        related_name='policy',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        db_comment='关联投保单；兼容旧出单接口时允许为空',
+    )
     quote = models.OneToOneField(
         PremiumQuote,
         verbose_name='关联试算单',
@@ -91,6 +241,15 @@ class Policy(models.Model):
         related_name='policy',
         on_delete=models.PROTECT,
         db_comment='关联核保记录',
+    )
+    payment_order = models.OneToOneField(
+        PaymentOrder,
+        verbose_name='关联支付订单',
+        related_name='policy',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        db_comment='关联支付订单；兼容旧出单接口时允许为空',
     )
     status = models.CharField('保单状态', max_length=20, choices=Status.choices, default=Status.ISSUED, db_comment='保单状态')
     applicant = models.JSONField('投保人信息', db_comment='投保人信息')
@@ -110,3 +269,63 @@ class Policy(models.Model):
 
     def __str__(self):
         return self.policy_no
+
+
+class ElectronicPolicy(models.Model):
+    """电子保单文件索引。"""
+
+    document_no = models.CharField('电子保单文档号', max_length=32, unique=True, db_index=True, db_comment='电子保单文档号')
+    policy = models.OneToOneField(
+        Policy,
+        verbose_name='关联保单',
+        related_name='electronic_policy',
+        on_delete=models.PROTECT,
+        db_comment='关联保单',
+    )
+    download_url = models.CharField('下载地址', max_length=256, db_comment='电子保单下载地址')
+    verify_code = models.CharField('验真码', max_length=32, db_comment='电子保单验真码')
+    generated_at = models.DateTimeField('生成时间', auto_now_add=True, db_comment='生成时间')
+
+    class Meta:
+        ordering = ['-generated_at']
+        verbose_name = '电子保单'
+        verbose_name_plural = '电子保单'
+        db_table_comment = '电子保单表'
+
+    def __str__(self):
+        return self.document_no
+
+
+class DeliveryRecord(models.Model):
+    """电子保单送达记录。"""
+
+    class Channel(models.TextChoices):
+        EMAIL = 'EMAIL', '邮件'
+        SMS = 'SMS', '短信'
+
+    class Status(models.TextChoices):
+        SENT = 'SENT', '已发送'
+        FAILED = 'FAILED', '发送失败'
+
+    delivery_no = models.CharField('送达流水号', max_length=32, unique=True, db_index=True, db_comment='送达流水号')
+    policy = models.ForeignKey(
+        Policy,
+        verbose_name='关联保单',
+        related_name='delivery_records',
+        on_delete=models.PROTECT,
+        db_comment='关联保单',
+    )
+    channel = models.CharField('送达渠道', max_length=16, choices=Channel.choices, db_comment='送达渠道')
+    recipient = models.CharField('收件人', max_length=128, db_comment='邮箱或手机号')
+    status = models.CharField('送达状态', max_length=16, choices=Status.choices, default=Status.SENT, db_comment='送达状态')
+    payload = models.JSONField('送达内容', default=dict, db_comment='送达内容')
+    sent_at = models.DateTimeField('发送时间', auto_now_add=True, db_comment='发送时间')
+
+    class Meta:
+        ordering = ['-sent_at']
+        verbose_name = '电子保单送达记录'
+        verbose_name_plural = '电子保单送达记录'
+        db_table_comment = '电子保单送达记录表'
+
+    def __str__(self):
+        return self.delivery_no

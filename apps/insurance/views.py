@@ -11,14 +11,33 @@ from .crypto import (
 )
 from .models import Policy, PremiumQuote, UnderwritingCase
 from .serializers import (
+    ApplicationUnderwritingRequestSerializer,
+    InsuranceApplicationCreateSerializer,
+    InsuranceApplicationSerializer,
     IssuePolicyRequestSerializer,
+    IssuePolicyFromApplicationRequestSerializer,
+    ManualUnderwritingReviewRequestSerializer,
+    ManualUnderwritingReviewSerializer,
+    PaymentOrderConfirmSerializer,
+    PaymentOrderCreateSerializer,
+    PaymentOrderSerializer,
     PolicySerializer,
     PremiumQuoteSerializer,
     PremiumTrialRequestSerializer,
     UnderwritingCaseSerializer,
     UnderwritingRequestSerializer,
 )
-from .services import create_premium_quote, issue_policy, underwrite
+from .services import (
+    confirm_payment_order,
+    create_application,
+    create_payment_order,
+    create_premium_quote,
+    issue_policy,
+    issue_policy_from_application,
+    review_manual_underwriting,
+    submit_application_underwriting,
+    underwrite,
+)
 
 
 TRUE_VALUES = {'1', 'true', 'yes', 'on'}
@@ -136,6 +155,183 @@ class UnderwritingDetailView(EncryptedInsuranceAPIView):
         return self.insurance_response(request, UnderwritingCaseSerializer(uw_case).data)
 
 
+class InsuranceApplicationView(EncryptedInsuranceAPIView):
+    def post(self, request):
+        try:
+            payload = self.request_payload(request)
+        except InsuranceCryptoError as exc:
+            return self.crypto_error_response(request, exc)
+
+        serializer = InsuranceApplicationCreateSerializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        try:
+            application = create_application(serializer.validated_data)
+        except PremiumQuote.DoesNotExist:
+            return self.insurance_response(
+                request,
+                {'code': 'NOT_FOUND', 'message': '试算单不存在'},
+                response_status=status.HTTP_404_NOT_FOUND,
+            )
+        except ValueError as exc:
+            return self.insurance_response(
+                request,
+                {'code': 'BUSINESS_ERROR', 'message': str(exc)},
+                response_status=status.HTTP_400_BAD_REQUEST,
+            )
+        return self.insurance_response(
+            request,
+            InsuranceApplicationSerializer(application).data,
+            response_status=status.HTTP_201_CREATED,
+        )
+
+
+class InsuranceApplicationDetailView(EncryptedInsuranceAPIView):
+    def get(self, request, application_no):
+        from .models import InsuranceApplication
+
+        application = get_object_or_404(InsuranceApplication, application_no=application_no)
+        return self.insurance_response(request, InsuranceApplicationSerializer(application).data)
+
+
+class ApplicationUnderwritingView(EncryptedInsuranceAPIView):
+    def post(self, request, application_no):
+        try:
+            payload = self.request_payload(request)
+        except InsuranceCryptoError as exc:
+            return self.crypto_error_response(request, exc)
+
+        payload = {**payload, 'application_no': application_no}
+        serializer = ApplicationUnderwritingRequestSerializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        try:
+            uw_case = submit_application_underwriting(serializer.validated_data)
+        except Exception as exc:
+            from .models import InsuranceApplication
+
+            if isinstance(exc, InsuranceApplication.DoesNotExist):
+                return self.insurance_response(
+                    request,
+                    {'code': 'NOT_FOUND', 'message': '投保单不存在'},
+                    response_status=status.HTTP_404_NOT_FOUND,
+                )
+            if isinstance(exc, ValueError):
+                return self.insurance_response(
+                    request,
+                    {'code': 'BUSINESS_ERROR', 'message': str(exc)},
+                    response_status=status.HTTP_400_BAD_REQUEST,
+                )
+            raise
+        return self.insurance_response(
+            request,
+            UnderwritingCaseSerializer(uw_case).data,
+            response_status=status.HTTP_201_CREATED,
+        )
+
+
+class ManualUnderwritingReviewView(EncryptedInsuranceAPIView):
+    def post(self, request, underwriting_no):
+        try:
+            payload = self.request_payload(request)
+        except InsuranceCryptoError as exc:
+            return self.crypto_error_response(request, exc)
+
+        payload = {**payload, 'underwriting_no': underwriting_no}
+        serializer = ManualUnderwritingReviewRequestSerializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        try:
+            review = review_manual_underwriting(serializer.validated_data)
+        except UnderwritingCase.DoesNotExist:
+            return self.insurance_response(
+                request,
+                {'code': 'NOT_FOUND', 'message': '核保记录不存在'},
+                response_status=status.HTTP_404_NOT_FOUND,
+            )
+        except ValueError as exc:
+            return self.insurance_response(
+                request,
+                {'code': 'BUSINESS_ERROR', 'message': str(exc)},
+                response_status=status.HTTP_400_BAD_REQUEST,
+            )
+        return self.insurance_response(
+            request,
+            ManualUnderwritingReviewSerializer(review).data,
+            response_status=status.HTTP_201_CREATED,
+        )
+
+
+class PaymentOrderView(EncryptedInsuranceAPIView):
+    def post(self, request):
+        try:
+            payload = self.request_payload(request)
+        except InsuranceCryptoError as exc:
+            return self.crypto_error_response(request, exc)
+
+        serializer = PaymentOrderCreateSerializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        try:
+            payment_order = create_payment_order(serializer.validated_data)
+        except Exception as exc:
+            from .models import InsuranceApplication
+
+            if isinstance(exc, InsuranceApplication.DoesNotExist):
+                return self.insurance_response(
+                    request,
+                    {'code': 'NOT_FOUND', 'message': '投保单不存在'},
+                    response_status=status.HTTP_404_NOT_FOUND,
+                )
+            if isinstance(exc, ValueError):
+                return self.insurance_response(
+                    request,
+                    {'code': 'BUSINESS_ERROR', 'message': str(exc)},
+                    response_status=status.HTTP_400_BAD_REQUEST,
+                )
+            raise
+        return self.insurance_response(
+            request,
+            PaymentOrderSerializer(payment_order).data,
+            response_status=status.HTTP_201_CREATED,
+        )
+
+
+class PaymentOrderDetailView(EncryptedInsuranceAPIView):
+    def get(self, request, pay_order_no):
+        from .models import PaymentOrder
+
+        payment_order = get_object_or_404(PaymentOrder, pay_order_no=pay_order_no)
+        return self.insurance_response(request, PaymentOrderSerializer(payment_order).data)
+
+
+class PaymentOrderConfirmView(EncryptedInsuranceAPIView):
+    def post(self, request, pay_order_no):
+        try:
+            payload = self.request_payload(request)
+        except InsuranceCryptoError as exc:
+            return self.crypto_error_response(request, exc)
+
+        payload = {**payload, 'pay_order_no': pay_order_no}
+        serializer = PaymentOrderConfirmSerializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        try:
+            payment_order = confirm_payment_order(serializer.validated_data)
+        except Exception as exc:
+            from .models import PaymentOrder
+
+            if isinstance(exc, PaymentOrder.DoesNotExist):
+                return self.insurance_response(
+                    request,
+                    {'code': 'NOT_FOUND', 'message': '支付订单不存在'},
+                    response_status=status.HTTP_404_NOT_FOUND,
+                )
+            if isinstance(exc, ValueError):
+                return self.insurance_response(
+                    request,
+                    {'code': 'BUSINESS_ERROR', 'message': str(exc)},
+                    response_status=status.HTTP_400_BAD_REQUEST,
+                )
+            raise
+        return self.insurance_response(request, PaymentOrderSerializer(payment_order).data)
+
+
 class IssuePolicyView(EncryptedInsuranceAPIView):
     def post(self, request):
         try:
@@ -159,6 +355,40 @@ class IssuePolicyView(EncryptedInsuranceAPIView):
                 {'code': 'BUSINESS_ERROR', 'message': str(exc)},
                 response_status=status.HTTP_400_BAD_REQUEST,
             )
+        return self.insurance_response(
+            request,
+            PolicySerializer(policy).data,
+            response_status=status.HTTP_201_CREATED,
+        )
+
+
+class IssueApplicationPolicyView(EncryptedInsuranceAPIView):
+    def post(self, request):
+        try:
+            payload = self.request_payload(request)
+        except InsuranceCryptoError as exc:
+            return self.crypto_error_response(request, exc)
+
+        serializer = IssuePolicyFromApplicationRequestSerializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        try:
+            policy = issue_policy_from_application(serializer.validated_data)
+        except Exception as exc:
+            from .models import InsuranceApplication
+
+            if isinstance(exc, InsuranceApplication.DoesNotExist):
+                return self.insurance_response(
+                    request,
+                    {'code': 'NOT_FOUND', 'message': '投保单不存在'},
+                    response_status=status.HTTP_404_NOT_FOUND,
+                )
+            if isinstance(exc, ValueError):
+                return self.insurance_response(
+                    request,
+                    {'code': 'BUSINESS_ERROR', 'message': str(exc)},
+                    response_status=status.HTTP_400_BAD_REQUEST,
+                )
+            raise
         return self.insurance_response(
             request,
             PolicySerializer(policy).data,

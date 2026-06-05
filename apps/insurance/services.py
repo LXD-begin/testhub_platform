@@ -5,7 +5,16 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.db import transaction
 from django.utils import timezone
 
-from .models import Policy, PremiumQuote, UnderwritingCase
+from .models import (
+    DeliveryRecord,
+    ElectronicPolicy,
+    InsuranceApplication,
+    ManualUnderwritingReview,
+    PaymentOrder,
+    Policy,
+    PremiumQuote,
+    UnderwritingCase,
+)
 
 
 PRODUCTS = {
@@ -110,6 +119,66 @@ def generate_no(prefix, model, field_name):
     today = timezone.localdate().strftime('%Y%m%d')
     sequence = model.objects.filter(**{f'{field_name}__startswith': f'{prefix}{today}'}).count() + 1
     return f'{prefix}{today}{sequence:06d}'
+
+
+def latest_underwriting_for_application(application):
+    """取投保单最近一次核保记录。
+
+    真实系统通常会记录每次核保调用；出单时只允许使用最近且仍有效的通过结论。
+    """
+    return application.underwriting_cases.order_by('-created_at').first()
+
+
+def update_application_after_underwriting(application, uw_case):
+    """按核保结论同步投保单状态，避免前端自行推断状态。"""
+    if uw_case.decision == UnderwritingCase.Decision.APPROVED:
+        application.status = InsuranceApplication.Status.UNDERWRITING_APPROVED
+    elif uw_case.decision == UnderwritingCase.Decision.REFERRED:
+        application.status = InsuranceApplication.Status.UNDERWRITING_REFERRED
+    else:
+        application.status = InsuranceApplication.Status.UNDERWRITING_DECLINED
+    application.save(update_fields=['status', 'updated_at'])
+
+
+def build_delivery_from_application(application):
+    """从投保单里提取默认电子保单送达信息。"""
+    delivery = {}
+    applicant = application.applicant or {}
+    if applicant.get('email'):
+        delivery['email'] = applicant['email']
+    if applicant.get('mobile'):
+        delivery['sms_mobile'] = applicant['mobile']
+    return delivery
+
+
+def create_electronic_policy_and_delivery(policy, delivery):
+    """生成电子保单索引并模拟邮件/短信送达。
+
+    当前项目不引入文件服务和消息队列，所以这里用可预测 URL 和送达记录模拟真实系统产物。
+    """
+    document = ElectronicPolicy.objects.create(
+        document_no=generate_no('EP', ElectronicPolicy, 'document_no'),
+        policy=policy,
+        download_url=f'/api/insurance/e-policies/{policy.policy_no}/download/',
+        verify_code=generate_no('VC', ElectronicPolicy, 'verify_code'),
+    )
+    if delivery.get('email'):
+        DeliveryRecord.objects.create(
+            delivery_no=generate_no('DL', DeliveryRecord, 'delivery_no'),
+            policy=policy,
+            channel=DeliveryRecord.Channel.EMAIL,
+            recipient=delivery['email'],
+            payload={'document_no': document.document_no, 'download_url': document.download_url},
+        )
+    if delivery.get('sms_mobile'):
+        DeliveryRecord.objects.create(
+            delivery_no=generate_no('DL', DeliveryRecord, 'delivery_no'),
+            policy=policy,
+            channel=DeliveryRecord.Channel.SMS,
+            recipient=delivery['sms_mobile'],
+            payload={'policy_no': policy.policy_no, 'verify_code': document.verify_code},
+        )
+    return document
 
 
 @transaction.atomic
@@ -261,6 +330,200 @@ def underwrite(validated_data):
 
 
 @transaction.atomic
+def create_application(validated_data):
+    """后端处理逻辑：创建投保单。
+
+    真实业务含义：
+    - 试算单只是价格快照，投保单才是正式投保申请。
+    - 投保单沉淀投保确认、受益人、健康告知等合规留痕。
+    - 同一个试算单只能创建一个有效投保单，避免多张申请争用同一价格快照。
+    """
+    quote = PremiumQuote.objects.select_for_update().get(quote_no=validated_data['quote_no'])
+    if quote.valid_until < timezone.now():
+        quote.status = PremiumQuote.Status.EXPIRED
+        quote.save(update_fields=['status', 'updated_at'])
+        raise ValueError('试算单已过期，请重新试算')
+    if hasattr(quote, 'application'):
+        raise ValueError('该试算单已创建投保单，不能重复创建')
+
+    consents = validated_data['consents']
+    required_consents = ['terms_confirmed', 'exclusions_confirmed', 'electronic_policy_confirmed']
+    missing = [field for field in required_consents if not consents.get(field)]
+    if missing:
+        raise ValueError(f'投保确认未完成: {", ".join(missing)}')
+
+    return InsuranceApplication.objects.create(
+        application_no=generate_no('APP', InsuranceApplication, 'application_no'),
+        quote=quote,
+        applicant=quote.applicant,
+        insured=quote.insured,
+        disclosures=json_safe(validated_data.get('disclosures', {})),
+        beneficiary_type=validated_data.get('beneficiary_type', 'LEGAL'),
+        beneficiaries=json_safe(validated_data.get('beneficiaries', [])),
+        consents=json_safe(consents),
+        channel_code=validated_data.get('channel_code', quote.premium_detail.get('channel_code', 'C_APP')),
+    )
+
+
+@transaction.atomic
+def submit_application_underwriting(validated_data):
+    """后端处理逻辑：投保单提交核保。
+
+    真实业务含义：
+    - 核保以投保单为主实体，同时继续绑定原试算单价格快照。
+    - 核保结果会反写投保单状态，后续支付、出单都以投保单状态判断。
+    """
+    application = InsuranceApplication.objects.select_for_update().select_related('quote').get(
+        application_no=validated_data['application_no']
+    )
+    if application.status in {
+        InsuranceApplication.Status.ISSUED,
+        InsuranceApplication.Status.UNDERWRITING_DECLINED,
+        InsuranceApplication.Status.PAYMENT_PENDING,
+        InsuranceApplication.Status.PAID,
+        InsuranceApplication.Status.CLOSED,
+    }:
+        raise ValueError('当前投保单状态不允许重新提交核保')
+
+    application.disclosures = json_safe(validated_data.get('disclosures', application.disclosures))
+    application.beneficiary_type = validated_data.get('beneficiary_type', application.beneficiary_type)
+    application.beneficiaries = json_safe(validated_data.get('beneficiaries', application.beneficiaries))
+    application.status = InsuranceApplication.Status.SUBMITTED
+    application.submitted_at = timezone.now()
+    application.save(
+        update_fields=['disclosures', 'beneficiary_type', 'beneficiaries', 'status', 'submitted_at', 'updated_at']
+    )
+
+    uw_case = underwrite({
+        'quote_no': application.quote.quote_no,
+        'disclosures': application.disclosures,
+        'beneficiary_type': application.beneficiary_type,
+        'beneficiaries': application.beneficiaries,
+    })
+    uw_case.application = application
+    uw_case.save(update_fields=['application'])
+    update_application_after_underwriting(application, uw_case)
+    return uw_case
+
+
+@transaction.atomic
+def review_manual_underwriting(validated_data):
+    """后端处理逻辑：人工核保复核。
+
+    真实业务含义：
+    - 自动核保转人工后，由核保员给出最终承保意见。
+    - 复核结论会覆盖当前核保记录的 decision，便于后续支付和出单复用同一核保单号。
+    """
+    uw_case = UnderwritingCase.objects.select_for_update().select_related('application').get(
+        uw_no=validated_data['underwriting_no']
+    )
+    if not uw_case.manual_review_required and uw_case.decision != UnderwritingCase.Decision.REFERRED:
+        raise ValueError('该核保记录不需要人工复核')
+    if hasattr(uw_case, 'manual_review'):
+        raise ValueError('该核保记录已完成人工复核')
+    if not uw_case.application:
+        raise ValueError('旧版核保记录未关联投保单，不能走人工复核接口')
+
+    review = ManualUnderwritingReview.objects.create(
+        review_no=generate_no('MR', ManualUnderwritingReview, 'review_no'),
+        underwriting=uw_case,
+        decision=validated_data['decision'],
+        risk_level=validated_data['risk_level'],
+        reasons=json_safe(validated_data.get('reasons', [])),
+        review_notes=validated_data.get('review_notes', ''),
+        reviewer=validated_data['reviewer'],
+    )
+    uw_case.decision = review.decision
+    uw_case.risk_level = review.risk_level
+    uw_case.reasons = review.reasons or [f'人工核保员 {review.reviewer} 复核通过']
+    uw_case.manual_review_required = review.decision == UnderwritingCase.Decision.REFERRED
+    uw_case.valid_until = timezone.now() + timedelta(hours=24)
+    uw_case.save(update_fields=['decision', 'risk_level', 'reasons', 'manual_review_required', 'valid_until'])
+    update_application_after_underwriting(uw_case.application, uw_case)
+    return review
+
+
+@transaction.atomic
+def create_payment_order(validated_data):
+    """后端处理逻辑：创建支付订单。
+
+    真实业务含义：
+    - 支付订单必须由服务端基于投保单、核保单和应缴保费生成。
+    - 后续出单只认服务端支付订单状态，不认前端自报支付成功。
+    """
+    application = InsuranceApplication.objects.select_for_update().select_related('quote').get(
+        application_no=validated_data['application_no']
+    )
+    if application.status not in {
+        InsuranceApplication.Status.UNDERWRITING_APPROVED,
+        InsuranceApplication.Status.PAYMENT_PENDING,
+    }:
+        raise ValueError('投保单未核保通过，不能创建支付订单')
+    if hasattr(application, 'policy'):
+        raise ValueError('该投保单已出单，不能重复支付')
+
+    uw_case = latest_underwriting_for_application(application)
+    if not uw_case or uw_case.decision != UnderwritingCase.Decision.APPROVED:
+        raise ValueError('未找到有效的核保通过记录')
+    if uw_case.valid_until < timezone.now():
+        raise ValueError('核保结果已过期，请重新核保')
+
+    payable = Decimal(str(application.quote.premium_detail['payable_premium']))
+    existing = application.payment_orders.filter(status=PaymentOrder.Status.SUCCESS).first()
+    if existing:
+        raise ValueError('该投保单已有成功支付订单，不能重复创建')
+    pending_order = application.payment_orders.filter(status=PaymentOrder.Status.CREATED).first()
+    if pending_order:
+        return pending_order
+
+    order = PaymentOrder.objects.create(
+        pay_order_no=generate_no('PAY', PaymentOrder, 'pay_order_no'),
+        application=application,
+        quote=application.quote,
+        underwriting=uw_case,
+        amount=payable,
+        pay_channel=validated_data.get('pay_channel', 'MOCK'),
+    )
+    application.status = InsuranceApplication.Status.PAYMENT_PENDING
+    application.save(update_fields=['status', 'updated_at'])
+    return order
+
+
+@transaction.atomic
+def confirm_payment_order(validated_data):
+    """后端处理逻辑：模拟支付中心回调。
+
+    真实业务含义：
+    - 生产系统应验签并核对支付中心流水；这里用接口模拟回调结果。
+    - 回调幂等：已经成功的支付订单再次收到成功通知时直接返回原订单。
+    """
+    order = PaymentOrder.objects.select_for_update().select_related('application').get(
+        pay_order_no=validated_data['pay_order_no']
+    )
+    paid_amount = Decimal(str(validated_data['paid_amount']))
+    if paid_amount != order.amount:
+        raise ValueError('支付回调金额与支付订单金额不一致')
+    if order.status == PaymentOrder.Status.SUCCESS:
+        return order
+    if validated_data['pay_status'] != PaymentOrder.Status.SUCCESS:
+        order.status = PaymentOrder.Status.FAILED
+        order.notify_payload = json_safe(validated_data)
+        order.save(update_fields=['status', 'notify_payload', 'updated_at'])
+        raise ValueError('支付未成功，不能继续出单')
+
+    order.status = PaymentOrder.Status.SUCCESS
+    order.external_trade_no = validated_data.get('external_trade_no', '')
+    order.notify_payload = json_safe(validated_data)
+    order.paid_at = timezone.now()
+    order.save(update_fields=['status', 'external_trade_no', 'notify_payload', 'paid_at', 'updated_at'])
+
+    application = order.application
+    application.status = InsuranceApplication.Status.PAID
+    application.save(update_fields=['status', 'updated_at'])
+    return order
+
+
+@transaction.atomic
 def issue_policy(validated_data):
     """后端处理逻辑：承保出单。
 
@@ -304,4 +567,67 @@ def issue_policy(validated_data):
     )
     quote.status = PremiumQuote.Status.ISSUED
     quote.save(update_fields=['status', 'updated_at'])
+    return policy
+
+
+@transaction.atomic
+def issue_policy_from_application(validated_data):
+    """后端处理逻辑：按真实投保单流程承保出单。
+
+    真实业务含义：
+    - 投保单必须核保通过且支付成功。
+    - 使用服务端成功支付订单承保，生成保单、电子保单和送达记录。
+    - 同一投保单、同一核保记录、同一支付订单都只能出一张正式保单。
+    """
+    application = InsuranceApplication.objects.select_for_update().select_related('quote').get(
+        application_no=validated_data['application_no']
+    )
+    if application.status != InsuranceApplication.Status.PAID:
+        raise ValueError('投保单未完成支付，不能承保出单')
+    if hasattr(application, 'policy'):
+        raise ValueError('该投保单已出单，不能重复出单')
+
+    payment_order = application.payment_orders.select_for_update().filter(status=PaymentOrder.Status.SUCCESS).first()
+    if not payment_order:
+        raise ValueError('未找到成功支付订单')
+    uw_case = payment_order.underwriting
+    if uw_case.decision != UnderwritingCase.Decision.APPROVED:
+        raise ValueError('核保未通过，不能承保出单')
+    if uw_case.valid_until < timezone.now():
+        raise ValueError('核保结果已过期，请重新核保')
+    if hasattr(uw_case, 'policy'):
+        raise ValueError('该核保记录已出单，不能重复出单')
+    if hasattr(payment_order, 'policy'):
+        raise ValueError('该支付订单已出单，不能重复出单')
+
+    delivery = validated_data.get('delivery') or build_delivery_from_application(application)
+    payment = {
+        'pay_order_no': payment_order.pay_order_no,
+        'pay_status': payment_order.status,
+        'paid_amount': money(payment_order.amount),
+        'paid_time': payment_order.paid_at.isoformat() if payment_order.paid_at else None,
+        'pay_channel': payment_order.pay_channel,
+        'external_trade_no': payment_order.external_trade_no,
+        'delivery': delivery,
+    }
+    policy = Policy.objects.create(
+        policy_no=generate_no('PAIC', Policy, 'policy_no'),
+        application=application,
+        quote=application.quote,
+        underwriting=uw_case,
+        payment_order=payment_order,
+        applicant=application.applicant,
+        insured=application.insured,
+        coverages=application.quote.coverages,
+        premium_detail=application.quote.premium_detail,
+        payment=payment,
+        effective_date=application.quote.effective_date,
+        expiry_date=application.quote.expiry_date,
+    )
+    create_electronic_policy_and_delivery(policy, delivery)
+
+    application.status = InsuranceApplication.Status.ISSUED
+    application.save(update_fields=['status', 'updated_at'])
+    application.quote.status = PremiumQuote.Status.ISSUED
+    application.quote.save(update_fields=['status', 'updated_at'])
     return policy

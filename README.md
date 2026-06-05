@@ -166,6 +166,18 @@ python manage.py runserver
 - `GET /api/insurance/underwriting/{underwriting_no}/`
 - `GET /api/insurance/policies/{policy_no}/`
 
+## 真实出单流程增强
+
+项目现在同时支持更接近真实保险公司核心出单系统的推荐链路：
+
+```text
+保费试算 -> 创建投保单 -> 投保单核保 -> 人工核保(可选) -> 创建支付订单 -> 支付回调确认 -> 承保出单 -> 电子保单送达
+```
+
+对应接口文档见：
+
+- `docs/insurance_real_issuance_api.md`
+
 ## 关键业务规则
 
 - 核保必须引用有效的 `quote_no`。
