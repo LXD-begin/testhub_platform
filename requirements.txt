@@ -2,3 +2,5 @@ Django==4.2.7
 djangorestframework==3.14.0
 PyMySQL==1.1.0
 cryptography==41.0.7
+redis==5.0.1
+hiredis==3.4.0

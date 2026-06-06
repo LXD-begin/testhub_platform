@@ -5,6 +5,14 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.db import transaction
 from django.utils import timezone
 
+from .cache import (
+    delete_application_cache,
+    delete_caches_for_payment_order,
+    delete_caches_for_policy,
+    delete_caches_for_underwriting,
+    delete_quote_cache,
+    delete_underwriting_cache,
+)
 from .models import (
     DeliveryRecord,
     ElectronicPolicy,
@@ -138,6 +146,8 @@ def update_application_after_underwriting(application, uw_case):
     else:
         application.status = InsuranceApplication.Status.UNDERWRITING_DECLINED
     application.save(update_fields=['status', 'updated_at'])
+    delete_application_cache(application.application_no)
+    delete_underwriting_cache(uw_case.uw_no)
 
 
 def build_delivery_from_application(application):
@@ -262,6 +272,7 @@ def underwrite(validated_data):
     if quote.valid_until < timezone.now():
         quote.status = PremiumQuote.Status.EXPIRED
         quote.save(update_fields=['status', 'updated_at'])
+        delete_quote_cache(quote.quote_no)
         raise ValueError('试算单已过期，请重新试算')
     if hasattr(quote, 'policy'):
         raise ValueError('该试算单已出单，不能重复核保')
@@ -326,6 +337,7 @@ def underwrite(validated_data):
     )
     quote.status = PremiumQuote.Status.UNDERWRITTEN
     quote.save(update_fields=['status', 'updated_at'])
+    delete_quote_cache(quote.quote_no)
     return uw_case
 
 
@@ -342,6 +354,7 @@ def create_application(validated_data):
     if quote.valid_until < timezone.now():
         quote.status = PremiumQuote.Status.EXPIRED
         quote.save(update_fields=['status', 'updated_at'])
+        delete_quote_cache(quote.quote_no)
         raise ValueError('试算单已过期，请重新试算')
     if hasattr(quote, 'application'):
         raise ValueError('该试算单已创建投保单，不能重复创建')
@@ -403,6 +416,7 @@ def submit_application_underwriting(validated_data):
     uw_case.application = application
     uw_case.save(update_fields=['application'])
     update_application_after_underwriting(application, uw_case)
+    delete_caches_for_underwriting(uw_case)
     return uw_case
 
 
@@ -440,6 +454,7 @@ def review_manual_underwriting(validated_data):
     uw_case.valid_until = timezone.now() + timedelta(hours=24)
     uw_case.save(update_fields=['decision', 'risk_level', 'reasons', 'manual_review_required', 'valid_until'])
     update_application_after_underwriting(uw_case.application, uw_case)
+    delete_caches_for_underwriting(uw_case)
     return review
 
 
@@ -486,6 +501,7 @@ def create_payment_order(validated_data):
     )
     application.status = InsuranceApplication.Status.PAYMENT_PENDING
     application.save(update_fields=['status', 'updated_at'])
+    delete_caches_for_payment_order(order)
     return order
 
 
@@ -509,6 +525,7 @@ def confirm_payment_order(validated_data):
         order.status = PaymentOrder.Status.FAILED
         order.notify_payload = json_safe(validated_data)
         order.save(update_fields=['status', 'notify_payload', 'updated_at'])
+        delete_caches_for_payment_order(order)
         raise ValueError('支付未成功，不能继续出单')
 
     order.status = PaymentOrder.Status.SUCCESS
@@ -520,6 +537,7 @@ def confirm_payment_order(validated_data):
     application = order.application
     application.status = InsuranceApplication.Status.PAID
     application.save(update_fields=['status', 'updated_at'])
+    delete_caches_for_payment_order(order)
     return order
 
 
@@ -567,6 +585,7 @@ def issue_policy(validated_data):
     )
     quote.status = PremiumQuote.Status.ISSUED
     quote.save(update_fields=['status', 'updated_at'])
+    delete_caches_for_policy(policy)
     return policy
 
 
@@ -630,4 +649,5 @@ def issue_policy_from_application(validated_data):
     application.save(update_fields=['status', 'updated_at'])
     application.quote.status = PremiumQuote.Status.ISSUED
     application.quote.save(update_fields=['status', 'updated_at'])
+    delete_caches_for_policy(policy)
     return policy

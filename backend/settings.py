@@ -30,6 +30,13 @@ def env_list(key, default=''):
     return [item.strip() for item in os.environ.get(key, default).split(',') if item.strip()]
 
 
+def env_int(key, default=0):
+    try:
+        return int(os.environ.get(key, default))
+    except (TypeError, ValueError):
+        return default
+
+
 load_env_file(ENV_FILE)
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-me')
@@ -131,6 +138,17 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.MultiPartParser',
     ],
 }
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+        'TIMEOUT': env_int('CACHE_TIMEOUT', 86400),
+        'KEY_PREFIX': os.environ.get('CACHE_KEY_PREFIX', 'aitesthub'),
+    }
+}
+
+INSURANCE_DETAIL_CACHE_TIMEOUT = env_int('INSURANCE_DETAIL_CACHE_TIMEOUT', 86400)
 
 LOGGING = {
     'version': 1,

@@ -1,195 +1,241 @@
 # Django Insurance Backend
 
-这是一个最小 Django + DRF 后端项目，当前实现了 C 端保险产品出单流程的核心接口：
+这是一个 Django + Django REST Framework 后端项目，当前实现了 C 端保险产品出单流程的后端原型。项目只包含后端代码，不包含前端页面、Celery、Channels 或历史自动化测试平台模块。
 
-1. 保费试算：生成 `quote_no`
-2. 自动核保：引用 `quote_no`，生成 `underwriting_no`
-3. 承保出单：引用已通过的 `underwriting_no`，支付成功后生成 `policy_no`
+接口详情不放在 README 中，统一放在 `docs/` 目录：
 
-接口之间强关联，不能跳步调用。
+- `docs/insurance_real_issuance_api.md`：保险出单流程接口文档
+- `docs/insurance_crypto.md`：保险接口加密说明
+- `docs/redis_cache.md`：Redis 缓存说明
 
-## 启动
+## 目录结构
 
-```bash
+```text
+aitesthub/
+├── apps/
+│   ├── __init__.py
+│   └── insurance/
+│       ├── admin.py
+│       ├── apps.py
+│       ├── cache.py
+│       ├── crypto.py
+│       ├── migrations/
+│       ├── models.py
+│       ├── serializers.py
+│       ├── services.py
+│       ├── tests.py
+│       ├── urls.py
+│       └── views.py
+├── backend/
+│   ├── __init__.py
+│   ├── asgi.py
+│   ├── request_logging.py
+│   ├── settings.py
+│   ├── urls.py
+│   └── wsgi.py
+├── docs/
+│   ├── insurance_crypto.md
+│   ├── insurance_real_issuance_api.md
+│   └── redis_cache.md
+├── logs/
+├── scripts/
+│   ├── generate_insurance_cases.py
+│   ├── start_local_redis_ui.ps1
+│   └── test_insurance_ui_flow.py
+├── .env
+├── .env.example
+├── manage.py
+├── requirements.txt
+└── README.md
+```
+
+## 环境要求
+
+- Python 3.12
+- MySQL 8.x 或兼容版本
+- Redis，本地开发可使用 Windows Redis fork
+- Windows PowerShell
+
+## 安装依赖
+
+```powershell
+cd E:\aitesthub
 .venv\Scripts\activate
 pip install -r requirements.txt
+```
+
+如果还没有虚拟环境：
+
+```powershell
+cd E:\aitesthub
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+## 环境变量
+
+本地开发使用 `.env`，示例见 `.env.example`。
+
+核心配置：
+
+```env
+SECRET_KEY=django-insecure-change-me
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+INSURANCE_CRYPTO_KEY=replace-with-a-strong-insurance-api-key
+
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=your-password
+DB_NAME=baoxian
+
+REDIS_URL=redis://127.0.0.1:6379/1
+CACHE_TIMEOUT=86400
+CACHE_KEY_PREFIX=aitesthub
+INSURANCE_DETAIL_CACHE_TIMEOUT=86400
+```
+
+## 数据库初始化
+
+先确认 MySQL 中已经创建数据库：
+
+```sql
+CREATE DATABASE baoxian DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+执行迁移：
+
+```powershell
+cd E:\aitesthub
+.venv\Scripts\activate
 python manage.py migrate
+```
+
+查看迁移状态：
+
+```powershell
+python manage.py showmigrations
+```
+
+检查项目配置：
+
+```powershell
+python manage.py check
+```
+
+## Redis 启动
+
+本地 Windows 已安装 `redis-windows` fork，并提供了启动脚本。
+
+启动 Redis 和 Redis Commander 可视化界面：
+
+```powershell
+cd E:\aitesthub
+powershell -ExecutionPolicy Bypass -File scripts\start_local_redis_ui.ps1
+```
+
+启动后地址：
+
+```text
+Redis: redis://127.0.0.1:6379/1
+Redis Commander: http://127.0.0.1:8081
+```
+
+手动检查 Redis：
+
+```powershell
+redis-cli ping
+```
+
+正常返回：
+
+```text
+PONG
+```
+
+验证 Django 缓存：
+
+```powershell
+python manage.py shell -c "from django.core.cache import cache; cache.set('ping', 'pong', 30); print(cache.get('ping'))"
+```
+
+正常返回：
+
+```text
+pong
+```
+
+## 启动后端服务
+
+```powershell
+cd E:\aitesthub
+.venv\Scripts\activate
 python manage.py runserver
 ```
 
-## 流程接口
-
-### 1. 保费试算
-
-`POST /api/insurance/premium-trials/`
-
-前端传参：
-
-```json
-{
-  "product_code": "PA_C_ACCIDENT",
-  "plan_code": "STANDARD",
-  "effective_date": "2026-06-05",
-  "insurance_period_months": 12,
-  "applicant": {
-    "name": "张三",
-    "id_type": "IDENTITY_CARD",
-    "id_no": "110101199001011234",
-    "mobile": "13800138000",
-    "email": "zhangsan@example.com"
-  },
-  "insured": {
-    "name": "张三",
-    "id_type": "IDENTITY_CARD",
-    "id_no": "110101199001011234",
-    "mobile": "13800138000"
-  },
-  "occupation_code": "010101",
-  "occupation_category": 2,
-  "has_social_security": true,
-  "channel_code": "C_APP"
-}
-```
-
-返回核心字段：
-
-```json
-{
-  "quote_no": "QT20260604000001",
-  "product_code": "PA_C_ACCIDENT",
-  "product_name": "平安个人综合意外险",
-  "plan_code": "STANDARD",
-  "plan_name": "标准版",
-  "coverages": [],
-  "premium_detail": {
-    "currency": "CNY",
-    "standard_premium": "199.00",
-    "discount_amount": "9.95",
-    "payable_premium": "189.05"
-  },
-  "effective_date": "2026-06-05",
-  "expiry_date": "2027-05-30",
-  "status": "QUOTED",
-  "valid_until": "2026-06-04T..."
-}
-```
-
-前端必须保存 `quote_no`，下一步核保要传它。
-
-### 2. 自动核保
-
-`POST /api/insurance/underwriting/`
-
-前端传参：
-
-```json
-{
-  "quote_no": "QT20260604000001",
-  "disclosures": {
-    "truth_declaration_confirmed": true,
-    "health_answers": {
-      "has_major_disease": false,
-      "has_disability": false,
-      "has_recent_claim": false
-    }
-  },
-  "beneficiary_type": "LEGAL",
-  "beneficiaries": []
-}
-```
-
-返回核心字段：
-
-```json
-{
-  "uw_no": "UW20260604000001",
-  "quote_no": "QT20260604000001",
-  "decision": "APPROVED",
-  "risk_level": "LOW",
-  "reasons": ["自动核保规则通过"],
-  "manual_review_required": false,
-  "valid_until": "2026-06-05T..."
-}
-```
-
-只有 `decision = APPROVED` 才允许进入承保出单。`REFERRED` 表示转人工，`DECLINED` 表示拒保。
-
-### 3. 承保出单
-
-`POST /api/insurance/policies/`
-
-前端传参：
-
-```json
-{
-  "underwriting_no": "UW20260604000001",
-  "payment": {
-    "pay_order_no": "PAY202606040001",
-    "pay_status": "SUCCESS",
-    "paid_amount": "189.05",
-    "paid_time": "2026-06-04T12:00:00+08:00",
-    "pay_channel": "WECHAT"
-  },
-  "delivery": {
-    "email": "zhangsan@example.com",
-    "sms_mobile": "13800138000"
-  },
-  "consent_confirmed": true
-}
-```
-
-返回核心字段：
-
-```json
-{
-  "policy_no": "PAIC20260604000001",
-  "quote_no": "QT20260604000001",
-  "underwriting_no": "UW20260604000001",
-  "status": "ISSUED",
-  "premium_detail": {
-    "payable_premium": "189.05"
-  },
-  "payment": {
-    "pay_order_no": "PAY202606040001",
-    "pay_status": "SUCCESS",
-    "paid_amount": "189.05"
-  },
-  "effective_date": "2026-06-05",
-  "expiry_date": "2027-05-30",
-  "issued_at": "2026-06-04T..."
-}
-```
-
-## 查询接口
-
-- `GET /api/insurance/premium-trials/{quote_no}/`
-- `GET /api/insurance/underwriting/{underwriting_no}/`
-- `GET /api/insurance/policies/{policy_no}/`
-
-## 真实出单流程增强
-
-项目现在同时支持更接近真实保险公司核心出单系统的推荐链路：
+默认访问：
 
 ```text
-保费试算 -> 创建投保单 -> 投保单核保 -> 人工核保(可选) -> 创建支付订单 -> 支付回调确认 -> 承保出单 -> 电子保单送达
+http://127.0.0.1:8000/
 ```
 
-对应接口文档见：
+保险接口统一前缀：
 
-- `docs/insurance_real_issuance_api.md`
+```text
+/api/insurance/
+```
 
-## 关键业务规则
+## 常用命令
 
-- 核保必须引用有效的 `quote_no`。
-- 试算单 30 分钟有效。
-- 核保结果 24 小时有效。
-- 职业类别 6 类拒保。
-- 职业类别 5 类转人工。
-- 年龄超过 65 周岁拒保。
-- 年龄超过 60 周岁转人工。
-- 健康告知异常转人工。
-- 未确认如实告知声明拒保。
-- 出单必须引用 `APPROVED` 的核保记录。
-- 支付状态必须是 `SUCCESS`。
-- 支付金额必须等于试算返回的 `payable_premium`。
-- 同一个核保记录不能重复出单。
+```powershell
+# 激活虚拟环境
+.venv\Scripts\activate
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 检查 Django 配置
+python manage.py check
+
+# 执行数据库迁移
+python manage.py migrate
+
+# 查看迁移状态
+python manage.py showmigrations
+
+# 启动 Redis 和可视化界面
+powershell -ExecutionPolicy Bypass -File scripts\start_local_redis_ui.ps1
+
+# 启动后端
+python manage.py runserver
+
+# 运行测试
+python manage.py test
+```
+
+## 缓存策略
+
+项目已接入 Redis 缓存。当前缓存范围是保险业务的查询类详情接口：
+
+- 试算单详情
+- 核保记录详情
+- 投保单详情
+- 支付订单详情
+- 保单详情
+
+这些缓存用于降低重复查询数据库的成本。默认缓存时间为 24 小时，业务状态发生变化时，服务层会主动删除相关缓存，避免读到旧状态。详细说明见 `docs/redis_cache.md`。
+
+## 接口文档
+
+接口文档不维护在 README 中：
+
+- 推荐主流程接口：`docs/insurance_real_issuance_api.md`
+- 加密请求/响应说明：`docs/insurance_crypto.md`
+
+主流程：
+
+```text
+保费试算 -> 创建投保单 -> 投保单核保 -> 人工核保(可选) -> 创建支付订单 -> 支付回调确认 -> 承保出单 -> 查询保单/电子保单
+```

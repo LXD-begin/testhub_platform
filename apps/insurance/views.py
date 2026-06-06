@@ -3,6 +3,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .cache import CACHE_NAMESPACES, get_detail_cache, set_detail_cache
 from .crypto import (
     InsuranceCryptoError,
     decrypt_payload,
@@ -73,6 +74,14 @@ class EncryptedInsuranceAPIView(APIView):
             return response
         return Response(data, status=response_status)
 
+    def cached_detail_response(self, request, cache_namespace, identifier, get_instance, serializer_class):
+        data = get_detail_cache(cache_namespace, identifier)
+        if data is None:
+            instance = get_instance()
+            data = serializer_class(instance).data
+            set_detail_cache(cache_namespace, identifier, data)
+        return self.insurance_response(request, data)
+
     def crypto_error_response(self, request, exc):
         setattr(request, self.encrypted_request_attr, True)
         return self.insurance_response(
@@ -115,8 +124,13 @@ class PremiumTrialView(EncryptedInsuranceAPIView):
 
 class PremiumQuoteDetailView(EncryptedInsuranceAPIView):
     def get(self, request, quote_no):
-        quote = get_object_or_404(PremiumQuote, quote_no=quote_no)
-        return self.insurance_response(request, PremiumQuoteSerializer(quote).data)
+        return self.cached_detail_response(
+            request,
+            CACHE_NAMESPACES['premium_quote'],
+            quote_no,
+            lambda: get_object_or_404(PremiumQuote, quote_no=quote_no),
+            PremiumQuoteSerializer,
+        )
 
 
 class UnderwritingView(EncryptedInsuranceAPIView):
@@ -151,8 +165,13 @@ class UnderwritingView(EncryptedInsuranceAPIView):
 
 class UnderwritingDetailView(EncryptedInsuranceAPIView):
     def get(self, request, underwriting_no):
-        uw_case = get_object_or_404(UnderwritingCase, uw_no=underwriting_no)
-        return self.insurance_response(request, UnderwritingCaseSerializer(uw_case).data)
+        return self.cached_detail_response(
+            request,
+            CACHE_NAMESPACES['underwriting'],
+            underwriting_no,
+            lambda: get_object_or_404(UnderwritingCase, uw_no=underwriting_no),
+            UnderwritingCaseSerializer,
+        )
 
 
 class InsuranceApplicationView(EncryptedInsuranceAPIView):
@@ -189,8 +208,13 @@ class InsuranceApplicationDetailView(EncryptedInsuranceAPIView):
     def get(self, request, application_no):
         from .models import InsuranceApplication
 
-        application = get_object_or_404(InsuranceApplication, application_no=application_no)
-        return self.insurance_response(request, InsuranceApplicationSerializer(application).data)
+        return self.cached_detail_response(
+            request,
+            CACHE_NAMESPACES['application'],
+            application_no,
+            lambda: get_object_or_404(InsuranceApplication, application_no=application_no),
+            InsuranceApplicationSerializer,
+        )
 
 
 class ApplicationUnderwritingView(EncryptedInsuranceAPIView):
@@ -297,8 +321,13 @@ class PaymentOrderDetailView(EncryptedInsuranceAPIView):
     def get(self, request, pay_order_no):
         from .models import PaymentOrder
 
-        payment_order = get_object_or_404(PaymentOrder, pay_order_no=pay_order_no)
-        return self.insurance_response(request, PaymentOrderSerializer(payment_order).data)
+        return self.cached_detail_response(
+            request,
+            CACHE_NAMESPACES['payment_order'],
+            pay_order_no,
+            lambda: get_object_or_404(PaymentOrder, pay_order_no=pay_order_no),
+            PaymentOrderSerializer,
+        )
 
 
 class PaymentOrderConfirmView(EncryptedInsuranceAPIView):
@@ -398,5 +427,10 @@ class IssueApplicationPolicyView(EncryptedInsuranceAPIView):
 
 class PolicyDetailView(EncryptedInsuranceAPIView):
     def get(self, request, policy_no):
-        policy = get_object_or_404(Policy, policy_no=policy_no)
-        return self.insurance_response(request, PolicySerializer(policy).data)
+        return self.cached_detail_response(
+            request,
+            CACHE_NAMESPACES['policy'],
+            policy_no,
+            lambda: get_object_or_404(Policy, policy_no=policy_no),
+            PolicySerializer,
+        )
