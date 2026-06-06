@@ -46,6 +46,7 @@ DEBUG = env_bool('DEBUG', True)
 ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', '*')
 
 INSURANCE_CRYPTO_KEY = os.environ.get('INSURANCE_CRYPTO_KEY', SECRET_KEY)
+INSURANCE_API_KEY = os.environ.get('INSURANCE_API_KEY', '')
 
 INSTALLED_APPS = [
     'django.contrib.admin',

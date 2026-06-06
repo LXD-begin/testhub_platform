@@ -13,11 +13,15 @@ from .views import (
     PolicyDetailView,
     PremiumQuoteDetailView,
     PremiumTrialView,
+    ProductDetailView,
+    ProductListView,
     UnderwritingDetailView,
     UnderwritingView,
 )
 
 urlpatterns = [
+    path('products/', ProductListView.as_view(), name='product-list'),
+    path('products/<str:product_code>/', ProductDetailView.as_view(), name='product-detail'),
     path('premium-trials/', PremiumTrialView.as_view(), name='premium-trial'),
     path('premium-trials/<str:quote_no>/', PremiumQuoteDetailView.as_view(), name='premium-quote-detail'),
     path('applications/', InsuranceApplicationView.as_view(), name='insurance-application'),

@@ -1,6 +1,145 @@
 from django.db import models
 
 
+class Product(models.Model):
+    """保险产品主数据。
+
+    真实保险公司里，产品代码、产品名称、投保年龄、保障期限、上下架状态一般都来自产品中心配置。
+    """
+
+    class Status(models.TextChoices):
+        ACTIVE = 'ACTIVE', '在售'
+        INACTIVE = 'INACTIVE', '停售'
+
+    product_code = models.CharField('产品代码', max_length=32, unique=True, db_index=True, db_comment='产品代码')
+    product_name = models.CharField('产品名称', max_length=128, db_comment='产品名称')
+    description = models.TextField('产品详情', blank=True, db_comment='产品详情')
+    status = models.CharField('产品状态', max_length=16, choices=Status.choices, default=Status.ACTIVE, db_comment='产品状态')
+    min_age = models.PositiveSmallIntegerField('最小承保年龄', default=0, db_comment='最小承保年龄')
+    max_age = models.PositiveSmallIntegerField('最大承保年龄', default=65, db_comment='最大承保年龄')
+    min_period_months = models.PositiveSmallIntegerField('最短保障期限（月）', default=1, db_comment='最短保障期限（月）')
+    max_period_months = models.PositiveSmallIntegerField('最长保障期限（月）', default=12, db_comment='最长保障期限（月）')
+    effective_start = models.DateField('销售起期', null=True, blank=True, db_comment='销售起期')
+    effective_end = models.DateField('销售止期', null=True, blank=True, db_comment='销售止期')
+    created_at = models.DateTimeField('创建时间', auto_now_add=True, db_comment='创建时间')
+    updated_at = models.DateTimeField('更新时间', auto_now=True, db_comment='更新时间')
+
+    class Meta:
+        ordering = ['product_code']
+        verbose_name = '保险产品'
+        verbose_name_plural = '保险产品'
+        db_table_comment = '保险产品配置表'
+
+    def __str__(self):
+        return self.product_code
+
+
+class ProductPlan(models.Model):
+    """保险计划配置。一个产品下可以有基础版、标准版、尊享版等多个计划。"""
+
+    product = models.ForeignKey(
+        Product,
+        verbose_name='所属产品',
+        related_name='plans',
+        on_delete=models.PROTECT,
+        db_comment='所属产品',
+    )
+    plan_code = models.CharField('计划代码', max_length=32, db_comment='计划代码')
+    plan_name = models.CharField('计划名称', max_length=128, db_comment='计划名称')
+    base_premium = models.DecimalField('基础保费', max_digits=10, decimal_places=2, db_comment='基础保费')
+    is_enabled = models.BooleanField('是否启用', default=True, db_comment='是否启用')
+    sort_order = models.PositiveSmallIntegerField('排序', default=0, db_comment='排序')
+    created_at = models.DateTimeField('创建时间', auto_now_add=True, db_comment='创建时间')
+    updated_at = models.DateTimeField('更新时间', auto_now=True, db_comment='更新时间')
+
+    class Meta:
+        ordering = ['product__product_code', 'sort_order', 'plan_code']
+        unique_together = [('product', 'plan_code')]
+        verbose_name = '保险计划'
+        verbose_name_plural = '保险计划'
+        db_table_comment = '保险计划配置表'
+
+    def __str__(self):
+        return f'{self.product.product_code}-{self.plan_code}'
+
+
+class ProductCoverage(models.Model):
+    """保障责任配置。试算返回的责任列表来自这里。"""
+
+    plan = models.ForeignKey(
+        ProductPlan,
+        verbose_name='所属计划',
+        related_name='coverages',
+        on_delete=models.PROTECT,
+        db_comment='所属计划',
+    )
+    coverage_code = models.CharField('责任代码', max_length=32, db_comment='责任代码')
+    coverage_name = models.CharField('责任名称', max_length=128, db_comment='责任名称')
+    insured_amount = models.DecimalField('保额', max_digits=12, decimal_places=2, db_comment='保额')
+    description = models.CharField('责任说明', max_length=256, blank=True, db_comment='责任说明')
+    sort_order = models.PositiveSmallIntegerField('排序', default=0, db_comment='排序')
+
+    class Meta:
+        ordering = ['plan', 'sort_order', 'coverage_code']
+        unique_together = [('plan', 'coverage_code')]
+        verbose_name = '保障责任'
+        verbose_name_plural = '保障责任'
+        db_table_comment = '保障责任配置表'
+
+    def __str__(self):
+        return f'{self.plan}-{self.coverage_code}'
+
+
+class AgeRateFactor(models.Model):
+    """年龄费率因子。试算按被保人年龄命中区间后乘以该系数。"""
+
+    product = models.ForeignKey(
+        Product,
+        verbose_name='所属产品',
+        related_name='age_rate_factors',
+        on_delete=models.PROTECT,
+        db_comment='所属产品',
+    )
+    min_age = models.PositiveSmallIntegerField('最小年龄', db_comment='最小年龄')
+    max_age = models.PositiveSmallIntegerField('最大年龄', db_comment='最大年龄')
+    factor = models.DecimalField('费率系数', max_digits=8, decimal_places=4, db_comment='费率系数')
+    is_enabled = models.BooleanField('是否启用', default=True, db_comment='是否启用')
+
+    class Meta:
+        ordering = ['product__product_code', 'min_age']
+        verbose_name = '年龄费率因子'
+        verbose_name_plural = '年龄费率因子'
+        db_table_comment = '年龄费率因子表'
+
+    def __str__(self):
+        return f'{self.product.product_code}:{self.min_age}-{self.max_age}'
+
+
+class OccupationRateFactor(models.Model):
+    """职业类别费率因子。职业类别越高，通常风险越高，保费系数越高。"""
+
+    product = models.ForeignKey(
+        Product,
+        verbose_name='所属产品',
+        related_name='occupation_rate_factors',
+        on_delete=models.PROTECT,
+        db_comment='所属产品',
+    )
+    occupation_category = models.PositiveSmallIntegerField('职业类别', db_comment='职业类别')
+    factor = models.DecimalField('费率系数', max_digits=8, decimal_places=4, db_comment='费率系数')
+    is_enabled = models.BooleanField('是否启用', default=True, db_comment='是否启用')
+
+    class Meta:
+        ordering = ['product__product_code', 'occupation_category']
+        unique_together = [('product', 'occupation_category')]
+        verbose_name = '职业费率因子'
+        verbose_name_plural = '职业费率因子'
+        db_table_comment = '职业费率因子表'
+
+    def __str__(self):
+        return f'{self.product.product_code}:{self.occupation_category}'
+
+
 class PremiumQuote(models.Model):
     """保费试算单。"""
 

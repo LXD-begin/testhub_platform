@@ -14,50 +14,18 @@ from .cache import (
     delete_underwriting_cache,
 )
 from .models import (
+    AgeRateFactor,
     DeliveryRecord,
     ElectronicPolicy,
     InsuranceApplication,
     ManualUnderwritingReview,
+    OccupationRateFactor,
     PaymentOrder,
     Policy,
     PremiumQuote,
+    Product,
     UnderwritingCase,
 )
-
-
-PRODUCTS = {
-    'PA_C_ACCIDENT': {
-        'name': '平安个人综合意外险',
-        'plans': {
-            'BASIC': {
-                'name': '基础版',
-                'base_premium': Decimal('99.00'),
-                'coverages': [
-                    {'code': 'ACCIDENT_DEATH', 'name': '意外身故/伤残', 'insured_amount': Decimal('100000')},
-                    {'code': 'ACCIDENT_MEDICAL', 'name': '意外医疗', 'insured_amount': Decimal('10000')},
-                ],
-            },
-            'STANDARD': {
-                'name': '标准版',
-                'base_premium': Decimal('199.00'),
-                'coverages': [
-                    {'code': 'ACCIDENT_DEATH', 'name': '意外身故/伤残', 'insured_amount': Decimal('300000')},
-                    {'code': 'ACCIDENT_MEDICAL', 'name': '意外医疗', 'insured_amount': Decimal('30000')},
-                    {'code': 'HOSPITAL_ALLOWANCE', 'name': '意外住院津贴', 'insured_amount': Decimal('100')},
-                ],
-            },
-            'PREMIUM': {
-                'name': '尊享版',
-                'base_premium': Decimal('399.00'),
-                'coverages': [
-                    {'code': 'ACCIDENT_DEATH', 'name': '意外身故/伤残', 'insured_amount': Decimal('800000')},
-                    {'code': 'ACCIDENT_MEDICAL', 'name': '意外医疗', 'insured_amount': Decimal('80000')},
-                    {'code': 'HOSPITAL_ALLOWANCE', 'name': '意外住院津贴', 'insured_amount': Decimal('200')},
-                ],
-            },
-        },
-    }
-}
 
 
 def money(value):
@@ -92,35 +60,64 @@ def age_on(date_of_birth, target_date):
     )
 
 
-def age_factor(age):
-    if age < 18:
-        return Decimal('0.80')
-    if age <= 45:
-        return Decimal('1.00')
-    if age <= 60:
-        return Decimal('1.35')
-    return Decimal('1.80')
+def age_factor(age, product):
+    rate = AgeRateFactor.objects.filter(
+        product=product,
+        min_age__lte=age,
+        max_age__gte=age,
+        is_enabled=True,
+    ).order_by('min_age').first()
+    if not rate:
+        raise ValueError('未配置匹配的年龄费率')
+    return Decimal(str(rate.factor))
 
 
-def occupation_factor(category):
-    return {
-        1: Decimal('0.90'),
-        2: Decimal('1.00'),
-        3: Decimal('1.20'),
-        4: Decimal('1.60'),
-        5: Decimal('2.50'),
-        6: Decimal('3.50'),
-    }[category]
+def occupation_factor(category, product):
+    rate = OccupationRateFactor.objects.filter(
+        product=product,
+        occupation_category=category,
+        is_enabled=True,
+    ).first()
+    if not rate:
+        raise ValueError('未配置匹配的职业类别费率')
+    return Decimal(str(rate.factor))
 
 
 def serialize_coverages(coverages):
     return [
         {
-            **item,
-            'insured_amount': money(item['insured_amount']),
+            'code': item.coverage_code,
+            'name': item.coverage_name,
+            'insured_amount': money(item.insured_amount),
         }
         for item in coverages
     ]
+
+
+def load_product_plan(product_code, plan_code, effective_date):
+    """读取产品、计划和责任配置。
+
+    真实系统通常来自产品中心、费率中心；这里先落在本项目数据库中，方便后台维护和测试。
+    """
+    try:
+        product = Product.objects.get(product_code=product_code)
+    except Product.DoesNotExist as exc:
+        raise ValueError('产品不存在或已下架') from exc
+
+    if product.status != Product.Status.ACTIVE:
+        raise ValueError('产品不存在或已下架')
+    if product.effective_start and effective_date < product.effective_start:
+        raise ValueError('产品尚未到销售起期')
+    if product.effective_end and effective_date > product.effective_end:
+        raise ValueError('产品已过销售止期')
+
+    plan = product.plans.filter(plan_code=plan_code, is_enabled=True).prefetch_related('coverages').first()
+    if not plan:
+        raise ValueError('产品计划不存在或未启用')
+    coverages = list(plan.coverages.all())
+    if not coverages:
+        raise ValueError('产品计划未配置保障责任')
+    return product, plan, coverages
 
 
 def generate_no(prefix, model, field_name):
@@ -201,24 +198,31 @@ def create_premium_quote(validated_data):
     - 生成 quote_no，保存试算单。
     - 后续核保必须引用这个 quote_no，保证流程串联。
     """
-    product = PRODUCTS.get(validated_data['product_code'])
-    if not product:
-        raise ValueError('产品不存在或已下架')
-
-    plan = product['plans'][validated_data['plan_code']]
     effective_date = validated_data['effective_date']
     period_months = validated_data['insurance_period_months']
+    product, plan, coverages = load_product_plan(
+        validated_data['product_code'],
+        validated_data['plan_code'],
+        effective_date,
+    )
+    if not product.min_period_months <= period_months <= product.max_period_months:
+        raise ValueError('保障期限不在产品允许范围内')
+
     expiry_date = effective_date + timedelta(days=period_months * 30 - 1)
     insured_birth = date_from_id_no(validated_data['insured'])
     insured_age = age_on(insured_birth, effective_date)
+    if not product.min_age <= insured_age <= product.max_age:
+        raise ValueError('被保人年龄不在产品承保范围内')
 
     # 基础保费来自产品计划；真实企业中通常来自产品中心/费率表。
-    base = plan['base_premium']
+    base = plan.base_premium
+    age_rate = age_factor(insured_age, product)
+    occupation_rate = occupation_factor(validated_data['occupation_category'], product)
     # 应缴保费 = 基础保费 * 年龄系数 * 职业系数 * 保障期间系数 * 优惠折扣。
     calculated = (
         base
-        * age_factor(insured_age)
-        * occupation_factor(validated_data['occupation_category'])
+        * age_rate
+        * occupation_rate
         * (Decimal(period_months) / Decimal('12'))
     )
     social_security_discount = Decimal('0.95') if validated_data['has_social_security'] else Decimal('1.00')
@@ -233,9 +237,9 @@ def create_premium_quote(validated_data):
         'payable_premium': money(payable_premium),
         'pricing_factors': {
             'insured_age': insured_age,
-            'age_factor': str(age_factor(insured_age)),
+            'age_factor': str(age_rate),
             'occupation_category': validated_data['occupation_category'],
-            'occupation_factor': str(occupation_factor(validated_data['occupation_category'])),
+            'occupation_factor': str(occupation_rate),
             'social_security_discount': str(social_security_discount),
             'period_months': period_months,
         },
@@ -244,12 +248,12 @@ def create_premium_quote(validated_data):
     return PremiumQuote.objects.create(
         quote_no=generate_no('QT', PremiumQuote, 'quote_no'),
         product_code=validated_data['product_code'],
-        product_name=product['name'],
+        product_name=product.product_name,
         plan_code=validated_data['plan_code'],
-        plan_name=plan['name'],
+        plan_name=plan.plan_name,
         applicant=json_safe(validated_data['applicant']),
         insured=json_safe(validated_data['insured']),
-        coverages=serialize_coverages(plan['coverages']),
+        coverages=serialize_coverages(coverages),
         premium_detail=premium_detail,
         effective_date=effective_date,
         expiry_date=expiry_date,

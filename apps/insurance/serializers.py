@@ -3,15 +3,93 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from .models import (
+    AgeRateFactor,
     DeliveryRecord,
     ElectronicPolicy,
     InsuranceApplication,
     ManualUnderwritingReview,
+    OccupationRateFactor,
     PaymentOrder,
     Policy,
     PremiumQuote,
+    Product,
+    ProductCoverage,
+    ProductPlan,
     UnderwritingCase,
 )
+
+
+class ProductCoverageSerializer(serializers.ModelSerializer):
+    """后端返回：产品计划下的保障责任配置。"""
+
+    class Meta:
+        model = ProductCoverage
+        fields = [
+            'coverage_code',
+            'coverage_name',
+            'insured_amount',
+            'description',
+            'sort_order',
+        ]
+
+
+class ProductPlanSerializer(serializers.ModelSerializer):
+    """后端返回：保险计划配置，包含基础保费和责任列表。"""
+
+    coverages = ProductCoverageSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ProductPlan
+        fields = [
+            'plan_code',
+            'plan_name',
+            'base_premium',
+            'is_enabled',
+            'sort_order',
+            'coverages',
+        ]
+
+
+class AgeRateFactorSerializer(serializers.ModelSerializer):
+    """后端返回：年龄费率配置。"""
+
+    class Meta:
+        model = AgeRateFactor
+        fields = ['min_age', 'max_age', 'factor', 'is_enabled']
+
+
+class OccupationRateFactorSerializer(serializers.ModelSerializer):
+    """后端返回：职业类别费率配置。"""
+
+    class Meta:
+        model = OccupationRateFactor
+        fields = ['occupation_category', 'factor', 'is_enabled']
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    """后端返回：产品详情，包含计划、责任和费率配置。"""
+
+    plans = ProductPlanSerializer(many=True, read_only=True)
+    age_rate_factors = AgeRateFactorSerializer(many=True, read_only=True)
+    occupation_rate_factors = OccupationRateFactorSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            'product_code',
+            'product_name',
+            'description',
+            'status',
+            'min_age',
+            'max_age',
+            'min_period_months',
+            'max_period_months',
+            'effective_start',
+            'effective_end',
+            'plans',
+            'age_rate_factors',
+            'occupation_rate_factors',
+        ]
 
 
 class PersonSerializer(serializers.Serializer):
@@ -38,8 +116,8 @@ class PremiumTrialRequestSerializer(serializers.Serializer):
 
     # 产品代码：当前示例产品为 PA_C_ACCIDENT。
     product_code = serializers.CharField(max_length=32)
-    # 计划代码：基础版、标准版、尊享版。
-    plan_code = serializers.ChoiceField(choices=['BASIC', 'STANDARD', 'PREMIUM'])
+    # 计划代码：来自产品计划配置表，例如 BASIC、STANDARD、PREMIUM；不再在代码里写死。
+    plan_code = serializers.CharField(max_length=32)
     # 保险起期：前端选择的保单生效日期。
     effective_date = serializers.DateField()
     # 保障期限（月）：当前限制 1-12 个月。

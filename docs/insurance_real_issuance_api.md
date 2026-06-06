@@ -12,13 +12,34 @@
 
 - 基础路径：`/api/insurance/`
 - 请求格式：`application/json`
-- 成功响应：返回对应业务对象 JSON。
+- 响应格式：统一返回 `{code, message, data}`。
+- 成功响应：`code` 固定为 `200`，`message` 为 `成功`，`data` 为对应业务对象。
+- 异常响应：`code` 固定为 `999`，`message` 为失败原因，`data` 为字段错误、错误类型或空。
+- 鉴权：默认不启用；配置 `INSURANCE_API_KEY` 后，必须传 `X-Insurance-API-Key` 或 `Authorization: Bearer <key>`。
+- 产品配置：产品、计划、保障责任、年龄费率、职业费率已落表，试算接口会读取数据库配置，不再依赖代码里的产品字典。
+- 产品查询：`GET /api/insurance/products/` 查询在售产品列表，`GET /api/insurance/products/{product_code}/` 查询单个产品详情。
+- 本文档后续接口响应示例中的业务对象，均表示统一响应外层 `data` 中的内容。
+- 成功响应外层示例：
+
+```json
+{
+  "code": 200,
+  "message": "成功",
+  "data": {
+    "application_no": "AP20260606000001"
+  }
+}
+```
+
 - 业务失败响应：
 
 ```json
 {
-  "code": "BUSINESS_ERROR",
-  "message": "投保单未核保通过，不能创建支付订单"
+  "code": 999,
+  "message": "投保单未核保通过，不能创建支付订单",
+  "data": {
+    "error_type": "BUSINESS_ERROR"
+  }
 }
 ```
 
@@ -26,8 +47,11 @@
 
 ```json
 {
-  "code": "NOT_FOUND",
-  "message": "投保单不存在"
+  "code": 999,
+  "message": "投保单不存在",
+  "data": {
+    "error_type": "NOT_FOUND"
+  }
 }
 ```
 

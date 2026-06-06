@@ -5,6 +5,8 @@
 接口详情不放在 README 中，统一放在 `docs/` 目录：
 
 - `docs/insurance_real_issuance_api.md`：保险出单流程接口文档
+- `docs/insurance_api_test_reference.md`：接口测试设计参考文档，包含入参、响应字段、字段含义和用例关注点
+- `docs/insurance_real_backend_optimization.md`：真实保险后端能力优化说明
 - `docs/insurance_crypto.md`：保险接口加密说明
 - `docs/redis_cache.md`：Redis 缓存说明
 
@@ -35,6 +37,8 @@ aitesthub/
 │   └── wsgi.py
 ├── docs/
 │   ├── insurance_crypto.md
+│   ├── insurance_api_test_reference.md
+│   ├── insurance_real_backend_optimization.md
 │   ├── insurance_real_issuance_api.md
 │   └── redis_cache.md
 ├── logs/
@@ -84,6 +88,7 @@ SECRET_KEY=django-insecure-change-me
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
 INSURANCE_CRYPTO_KEY=replace-with-a-strong-insurance-api-key
+INSURANCE_API_KEY=
 
 DB_HOST=127.0.0.1
 DB_PORT=3306
@@ -187,6 +192,13 @@ http://127.0.0.1:8000/
 /api/insurance/
 ```
 
+产品配置查询：
+
+```text
+GET /api/insurance/products/
+GET /api/insurance/products/{product_code}/
+```
+
 ## 常用命令
 
 ```powershell
@@ -217,7 +229,7 @@ python manage.py test
 
 ## 缓存策略
 
-项目已接入 Redis 缓存。当前缓存范围是保险业务的查询类详情接口：
+项目已接入 Redis 缓存。当前缓存范围是保险业务的详情数据：详情 GET 会读缓存，缓存未命中时查询数据库并写入缓存；写接口成功后也会主动写入或刷新相关详情缓存。
 
 - 试算单详情
 - 核保记录详情
@@ -225,13 +237,26 @@ python manage.py test
 - 支付订单详情
 - 保单详情
 
-这些缓存用于降低重复查询数据库的成本。默认缓存时间为 24 小时，业务状态发生变化时，服务层会主动删除相关缓存，避免读到旧状态。详细说明见 `docs/redis_cache.md`。
+这些缓存用于降低重复查询数据库的成本。默认缓存时间为 24 小时，业务状态发生变化时会先删除旧缓存，写接口成功后再写入最新缓存，避免读到旧状态。详细说明见 `docs/redis_cache.md`。
+
+## 产品和费率配置
+
+项目已增加产品、计划、保障责任、年龄费率、职业费率配置表。执行 `python manage.py migrate` 后会初始化示例产品 `PA_C_ACCIDENT`，试算接口会读取数据库配置计算保费。
+
+如果 `.env` 配置了 `INSURANCE_API_KEY`，调用保险接口时需要带以下任一请求头：
+
+```http
+X-Insurance-API-Key: your-api-key
+Authorization: Bearer your-api-key
+```
 
 ## 接口文档
 
 接口文档不维护在 README 中：
 
 - 推荐主流程接口：`docs/insurance_real_issuance_api.md`
+- 接口测试设计参考：`docs/insurance_api_test_reference.md`
+- 真实保险后端优化说明：`docs/insurance_real_backend_optimization.md`
 - 加密请求/响应说明：`docs/insurance_crypto.md`
 
 主流程：

@@ -1,15 +1,54 @@
 from django.contrib import admin
 
 from .models import (
+    AgeRateFactor,
     DeliveryRecord,
     ElectronicPolicy,
     InsuranceApplication,
     ManualUnderwritingReview,
+    OccupationRateFactor,
     PaymentOrder,
     Policy,
     PremiumQuote,
+    Product,
+    ProductCoverage,
+    ProductPlan,
     UnderwritingCase,
 )
+
+
+@admin.register(Product)
+class ProductAdmin(admin.ModelAdmin):
+    list_display = ('product_code', 'product_name', 'status', 'min_age', 'max_age', 'min_period_months', 'max_period_months')
+    search_fields = ('product_code', 'product_name')
+    list_filter = ('status',)
+
+
+@admin.register(ProductPlan)
+class ProductPlanAdmin(admin.ModelAdmin):
+    list_display = ('product', 'plan_code', 'plan_name', 'base_premium', 'is_enabled', 'sort_order')
+    search_fields = ('product__product_code', 'plan_code', 'plan_name')
+    list_filter = ('is_enabled',)
+
+
+@admin.register(ProductCoverage)
+class ProductCoverageAdmin(admin.ModelAdmin):
+    list_display = ('plan', 'coverage_code', 'coverage_name', 'insured_amount', 'sort_order')
+    search_fields = ('plan__product__product_code', 'plan__plan_code', 'coverage_code', 'coverage_name')
+
+
+@admin.register(AgeRateFactor)
+class AgeRateFactorAdmin(admin.ModelAdmin):
+    list_display = ('product', 'min_age', 'max_age', 'factor', 'is_enabled')
+    search_fields = ('product__product_code',)
+    list_filter = ('is_enabled',)
+
+
+@admin.register(OccupationRateFactor)
+class OccupationRateFactorAdmin(admin.ModelAdmin):
+    list_display = ('product', 'occupation_category', 'factor', 'is_enabled')
+    search_fields = ('product__product_code',)
+    list_filter = ('is_enabled',)
 
 
 @admin.register(PremiumQuote)

@@ -37,6 +37,18 @@ X-Insurance-Encrypted: true
 X-Insurance-Encrypted: true
 ```
 
+解密响应信封后，明文内容仍然使用项目统一响应结构：
+
+```json
+{
+  "code": 200,
+  "message": "成功",
+  "data": {
+    "业务字段": "业务数据"
+  }
+}
+```
+
 ## GET 加密响应
 
 查询接口没有请求体，需要加密响应时加查询参数：
