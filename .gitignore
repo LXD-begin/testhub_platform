@@ -1,9 +1,14 @@
-# Python / Django
+# Python
 .venv/
 __pycache__/
 *.py[cod]
+
+# pytest / reports
 .pytest_cache/
-db.sqlite3
+api_tests/reports/allure-results/
+api_tests/reports/allure-report/
+api_tests/reports/logs/
+api_tests/reports/.pytest_cache/
 
 # IDE / local tools
 .idea/
@@ -12,7 +17,7 @@ db.sqlite3
 .claude/
 .DS_Store
 
-# Local configuration
+# Local configuration and logs
 .env
 *.bak
 *.log

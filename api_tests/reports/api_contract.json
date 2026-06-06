@@ -1,0 +1,3198 @@
+[
+  {
+    "method": "POST",
+    "path": "/api/insurance/auth/token/",
+    "view": "InsuranceTokenView",
+    "description": "接口：POST /api/insurance/auth/token/。\n\n    用途：无需登录，生成一个随机接口 token；后续保险接口调用需放到 Authorization Bearer 或 X-Insurance-Token。",
+    "request_fields": null,
+    "response_fields": null,
+    "source_branch": "dev-master"
+  },
+  {
+    "method": "GET",
+    "path": "/api/insurance/products/",
+    "view": "ProductListView",
+    "description": "接口：GET /api/insurance/products/。\n\n    用途：查询当前在售产品列表，前端可用它展示可投保产品和计划入口。",
+    "request_fields": null,
+    "response_fields": {
+      "product_code": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "产品代码"
+      },
+      "product_name": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 128,
+        "help_text": "None",
+        "label": "产品名称"
+      },
+      "description": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": true,
+        "help_text": "None",
+        "label": "产品详情"
+      },
+      "status": {
+        "type": "ChoiceField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "产品状态",
+        "choices": [
+          "ACTIVE",
+          "INACTIVE"
+        ]
+      },
+      "min_age": {
+        "type": "IntegerField",
+        "required": false,
+        "read_only": false,
+        "min_value": "0",
+        "max_value": "65535",
+        "help_text": "None",
+        "label": "最小承保年龄"
+      },
+      "max_age": {
+        "type": "IntegerField",
+        "required": false,
+        "read_only": false,
+        "min_value": "0",
+        "max_value": "65535",
+        "help_text": "None",
+        "label": "最大承保年龄"
+      },
+      "min_period_months": {
+        "type": "IntegerField",
+        "required": false,
+        "read_only": false,
+        "min_value": "0",
+        "max_value": "65535",
+        "help_text": "None",
+        "label": "最短保障期限（月）"
+      },
+      "max_period_months": {
+        "type": "IntegerField",
+        "required": false,
+        "read_only": false,
+        "min_value": "0",
+        "max_value": "65535",
+        "help_text": "None",
+        "label": "最长保障期限（月）"
+      },
+      "effective_start": {
+        "type": "DateField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "销售起期"
+      },
+      "effective_end": {
+        "type": "DateField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "销售止期"
+      },
+      "plans": {
+        "type": "ListSerializer",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "Plans",
+        "child": {
+          "type": "ProductPlanSerializer",
+          "required": false,
+          "read_only": true,
+          "help_text": "None",
+          "children": {
+            "plan_code": {
+              "type": "CharField",
+              "required": true,
+              "read_only": false,
+              "allow_blank": false,
+              "max_length": 32,
+              "help_text": "None",
+              "label": "计划代码"
+            },
+            "plan_name": {
+              "type": "CharField",
+              "required": true,
+              "read_only": false,
+              "allow_blank": false,
+              "max_length": 128,
+              "help_text": "None",
+              "label": "计划名称"
+            },
+            "base_premium": {
+              "type": "DecimalField",
+              "required": true,
+              "read_only": false,
+              "min_value": "None",
+              "max_value": "None",
+              "help_text": "None",
+              "label": "基础保费"
+            },
+            "is_enabled": {
+              "type": "BooleanField",
+              "required": false,
+              "read_only": false,
+              "help_text": "None",
+              "label": "是否启用"
+            },
+            "sort_order": {
+              "type": "IntegerField",
+              "required": false,
+              "read_only": false,
+              "min_value": "0",
+              "max_value": "65535",
+              "help_text": "None",
+              "label": "排序"
+            },
+            "coverages": {
+              "type": "ListSerializer",
+              "required": false,
+              "read_only": true,
+              "help_text": "None",
+              "label": "Coverages",
+              "child": {
+                "type": "ProductCoverageSerializer",
+                "required": false,
+                "read_only": true,
+                "help_text": "None",
+                "children": {
+                  "coverage_code": {
+                    "type": "CharField",
+                    "required": true,
+                    "read_only": false,
+                    "allow_blank": false,
+                    "max_length": 32,
+                    "help_text": "None",
+                    "label": "责任代码"
+                  },
+                  "coverage_name": {
+                    "type": "CharField",
+                    "required": true,
+                    "read_only": false,
+                    "allow_blank": false,
+                    "max_length": 128,
+                    "help_text": "None",
+                    "label": "责任名称"
+                  },
+                  "insured_amount": {
+                    "type": "DecimalField",
+                    "required": true,
+                    "read_only": false,
+                    "min_value": "None",
+                    "max_value": "None",
+                    "help_text": "None",
+                    "label": "保额"
+                  },
+                  "description": {
+                    "type": "CharField",
+                    "required": false,
+                    "read_only": false,
+                    "allow_blank": true,
+                    "max_length": 256,
+                    "help_text": "None",
+                    "label": "责任说明"
+                  },
+                  "sort_order": {
+                    "type": "IntegerField",
+                    "required": false,
+                    "read_only": false,
+                    "min_value": "0",
+                    "max_value": "65535",
+                    "help_text": "None",
+                    "label": "排序"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "age_rate_factors": {
+        "type": "ListSerializer",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "Age rate factors",
+        "child": {
+          "type": "AgeRateFactorSerializer",
+          "required": false,
+          "read_only": true,
+          "help_text": "None",
+          "children": {
+            "min_age": {
+              "type": "IntegerField",
+              "required": true,
+              "read_only": false,
+              "min_value": "0",
+              "max_value": "65535",
+              "help_text": "None",
+              "label": "最小年龄"
+            },
+            "max_age": {
+              "type": "IntegerField",
+              "required": true,
+              "read_only": false,
+              "min_value": "0",
+              "max_value": "65535",
+              "help_text": "None",
+              "label": "最大年龄"
+            },
+            "factor": {
+              "type": "DecimalField",
+              "required": true,
+              "read_only": false,
+              "min_value": "None",
+              "max_value": "None",
+              "help_text": "None",
+              "label": "费率系数"
+            },
+            "is_enabled": {
+              "type": "BooleanField",
+              "required": false,
+              "read_only": false,
+              "help_text": "None",
+              "label": "是否启用"
+            }
+          }
+        }
+      },
+      "occupation_rate_factors": {
+        "type": "ListSerializer",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "Occupation rate factors",
+        "child": {
+          "type": "OccupationRateFactorSerializer",
+          "required": false,
+          "read_only": true,
+          "help_text": "None",
+          "children": {
+            "occupation_category": {
+              "type": "IntegerField",
+              "required": true,
+              "read_only": false,
+              "min_value": "0",
+              "max_value": "65535",
+              "help_text": "None",
+              "label": "职业类别"
+            },
+            "factor": {
+              "type": "DecimalField",
+              "required": true,
+              "read_only": false,
+              "min_value": "None",
+              "max_value": "None",
+              "help_text": "None",
+              "label": "费率系数"
+            },
+            "is_enabled": {
+              "type": "BooleanField",
+              "required": false,
+              "read_only": false,
+              "help_text": "None",
+              "label": "是否启用"
+            }
+          }
+        }
+      }
+    },
+    "source_branch": "dev-master"
+  },
+  {
+    "method": "GET",
+    "path": "/api/insurance/products/{product_code}/",
+    "view": "ProductDetailView",
+    "description": "接口：GET /api/insurance/products/{product_code}/。\n\n    用途：查询单个产品详情，包含计划、责任、年龄费率和职业费率配置。",
+    "request_fields": null,
+    "response_fields": {
+      "product_code": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "产品代码"
+      },
+      "product_name": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 128,
+        "help_text": "None",
+        "label": "产品名称"
+      },
+      "description": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": true,
+        "help_text": "None",
+        "label": "产品详情"
+      },
+      "status": {
+        "type": "ChoiceField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "产品状态",
+        "choices": [
+          "ACTIVE",
+          "INACTIVE"
+        ]
+      },
+      "min_age": {
+        "type": "IntegerField",
+        "required": false,
+        "read_only": false,
+        "min_value": "0",
+        "max_value": "65535",
+        "help_text": "None",
+        "label": "最小承保年龄"
+      },
+      "max_age": {
+        "type": "IntegerField",
+        "required": false,
+        "read_only": false,
+        "min_value": "0",
+        "max_value": "65535",
+        "help_text": "None",
+        "label": "最大承保年龄"
+      },
+      "min_period_months": {
+        "type": "IntegerField",
+        "required": false,
+        "read_only": false,
+        "min_value": "0",
+        "max_value": "65535",
+        "help_text": "None",
+        "label": "最短保障期限（月）"
+      },
+      "max_period_months": {
+        "type": "IntegerField",
+        "required": false,
+        "read_only": false,
+        "min_value": "0",
+        "max_value": "65535",
+        "help_text": "None",
+        "label": "最长保障期限（月）"
+      },
+      "effective_start": {
+        "type": "DateField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "销售起期"
+      },
+      "effective_end": {
+        "type": "DateField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "销售止期"
+      },
+      "plans": {
+        "type": "ListSerializer",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "Plans",
+        "child": {
+          "type": "ProductPlanSerializer",
+          "required": false,
+          "read_only": true,
+          "help_text": "None",
+          "children": {
+            "plan_code": {
+              "type": "CharField",
+              "required": true,
+              "read_only": false,
+              "allow_blank": false,
+              "max_length": 32,
+              "help_text": "None",
+              "label": "计划代码"
+            },
+            "plan_name": {
+              "type": "CharField",
+              "required": true,
+              "read_only": false,
+              "allow_blank": false,
+              "max_length": 128,
+              "help_text": "None",
+              "label": "计划名称"
+            },
+            "base_premium": {
+              "type": "DecimalField",
+              "required": true,
+              "read_only": false,
+              "min_value": "None",
+              "max_value": "None",
+              "help_text": "None",
+              "label": "基础保费"
+            },
+            "is_enabled": {
+              "type": "BooleanField",
+              "required": false,
+              "read_only": false,
+              "help_text": "None",
+              "label": "是否启用"
+            },
+            "sort_order": {
+              "type": "IntegerField",
+              "required": false,
+              "read_only": false,
+              "min_value": "0",
+              "max_value": "65535",
+              "help_text": "None",
+              "label": "排序"
+            },
+            "coverages": {
+              "type": "ListSerializer",
+              "required": false,
+              "read_only": true,
+              "help_text": "None",
+              "label": "Coverages",
+              "child": {
+                "type": "ProductCoverageSerializer",
+                "required": false,
+                "read_only": true,
+                "help_text": "None",
+                "children": {
+                  "coverage_code": {
+                    "type": "CharField",
+                    "required": true,
+                    "read_only": false,
+                    "allow_blank": false,
+                    "max_length": 32,
+                    "help_text": "None",
+                    "label": "责任代码"
+                  },
+                  "coverage_name": {
+                    "type": "CharField",
+                    "required": true,
+                    "read_only": false,
+                    "allow_blank": false,
+                    "max_length": 128,
+                    "help_text": "None",
+                    "label": "责任名称"
+                  },
+                  "insured_amount": {
+                    "type": "DecimalField",
+                    "required": true,
+                    "read_only": false,
+                    "min_value": "None",
+                    "max_value": "None",
+                    "help_text": "None",
+                    "label": "保额"
+                  },
+                  "description": {
+                    "type": "CharField",
+                    "required": false,
+                    "read_only": false,
+                    "allow_blank": true,
+                    "max_length": 256,
+                    "help_text": "None",
+                    "label": "责任说明"
+                  },
+                  "sort_order": {
+                    "type": "IntegerField",
+                    "required": false,
+                    "read_only": false,
+                    "min_value": "0",
+                    "max_value": "65535",
+                    "help_text": "None",
+                    "label": "排序"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "age_rate_factors": {
+        "type": "ListSerializer",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "Age rate factors",
+        "child": {
+          "type": "AgeRateFactorSerializer",
+          "required": false,
+          "read_only": true,
+          "help_text": "None",
+          "children": {
+            "min_age": {
+              "type": "IntegerField",
+              "required": true,
+              "read_only": false,
+              "min_value": "0",
+              "max_value": "65535",
+              "help_text": "None",
+              "label": "最小年龄"
+            },
+            "max_age": {
+              "type": "IntegerField",
+              "required": true,
+              "read_only": false,
+              "min_value": "0",
+              "max_value": "65535",
+              "help_text": "None",
+              "label": "最大年龄"
+            },
+            "factor": {
+              "type": "DecimalField",
+              "required": true,
+              "read_only": false,
+              "min_value": "None",
+              "max_value": "None",
+              "help_text": "None",
+              "label": "费率系数"
+            },
+            "is_enabled": {
+              "type": "BooleanField",
+              "required": false,
+              "read_only": false,
+              "help_text": "None",
+              "label": "是否启用"
+            }
+          }
+        }
+      },
+      "occupation_rate_factors": {
+        "type": "ListSerializer",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "Occupation rate factors",
+        "child": {
+          "type": "OccupationRateFactorSerializer",
+          "required": false,
+          "read_only": true,
+          "help_text": "None",
+          "children": {
+            "occupation_category": {
+              "type": "IntegerField",
+              "required": true,
+              "read_only": false,
+              "min_value": "0",
+              "max_value": "65535",
+              "help_text": "None",
+              "label": "职业类别"
+            },
+            "factor": {
+              "type": "DecimalField",
+              "required": true,
+              "read_only": false,
+              "min_value": "None",
+              "max_value": "None",
+              "help_text": "None",
+              "label": "费率系数"
+            },
+            "is_enabled": {
+              "type": "BooleanField",
+              "required": false,
+              "read_only": false,
+              "help_text": "None",
+              "label": "是否启用"
+            }
+          }
+        }
+      }
+    },
+    "source_branch": "dev-master"
+  },
+  {
+    "method": "POST",
+    "path": "/api/insurance/premium-trials/",
+    "view": "PremiumTrialView",
+    "description": "接口：POST /api/insurance/premium-trials/。\n\n    用途：保费试算，根据产品、计划、被保人年龄、职业类别和优惠规则计算应缴保费。",
+    "request_fields": {
+      "product_code": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "Product code"
+      },
+      "plan_code": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "Plan code"
+      },
+      "effective_date": {
+        "type": "DateField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "Effective date"
+      },
+      "insurance_period_months": {
+        "type": "IntegerField",
+        "required": false,
+        "read_only": false,
+        "min_value": "1",
+        "max_value": "12",
+        "help_text": "None",
+        "label": "Insurance period months"
+      },
+      "applicant": {
+        "type": "PersonSerializer",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "Applicant",
+        "children": {
+          "name": {
+            "type": "CharField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": false,
+            "max_length": 64,
+            "help_text": "None",
+            "label": "Name"
+          },
+          "id_type": {
+            "type": "ChoiceField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": false,
+            "help_text": "None",
+            "label": "Id type",
+            "choices": [
+              "IDENTITY_CARD",
+              "PASSPORT"
+            ]
+          },
+          "id_no": {
+            "type": "CharField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": false,
+            "max_length": 32,
+            "help_text": "None",
+            "label": "Id no"
+          },
+          "mobile": {
+            "type": "CharField",
+            "required": false,
+            "read_only": false,
+            "allow_blank": true,
+            "max_length": 20,
+            "help_text": "None",
+            "label": "Mobile"
+          },
+          "email": {
+            "type": "EmailField",
+            "required": false,
+            "read_only": false,
+            "allow_blank": true,
+            "help_text": "None",
+            "label": "Email"
+          },
+          "date_of_birth": {
+            "type": "DateField",
+            "required": false,
+            "read_only": false,
+            "help_text": "None",
+            "label": "Date of birth"
+          },
+          "gender": {
+            "type": "ChoiceField",
+            "required": false,
+            "read_only": false,
+            "allow_blank": false,
+            "help_text": "None",
+            "label": "Gender",
+            "choices": [
+              "M",
+              "F"
+            ]
+          }
+        }
+      },
+      "insured": {
+        "type": "PersonSerializer",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "Insured",
+        "children": {
+          "name": {
+            "type": "CharField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": false,
+            "max_length": 64,
+            "help_text": "None",
+            "label": "Name"
+          },
+          "id_type": {
+            "type": "ChoiceField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": false,
+            "help_text": "None",
+            "label": "Id type",
+            "choices": [
+              "IDENTITY_CARD",
+              "PASSPORT"
+            ]
+          },
+          "id_no": {
+            "type": "CharField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": false,
+            "max_length": 32,
+            "help_text": "None",
+            "label": "Id no"
+          },
+          "mobile": {
+            "type": "CharField",
+            "required": false,
+            "read_only": false,
+            "allow_blank": true,
+            "max_length": 20,
+            "help_text": "None",
+            "label": "Mobile"
+          },
+          "email": {
+            "type": "EmailField",
+            "required": false,
+            "read_only": false,
+            "allow_blank": true,
+            "help_text": "None",
+            "label": "Email"
+          },
+          "date_of_birth": {
+            "type": "DateField",
+            "required": false,
+            "read_only": false,
+            "help_text": "None",
+            "label": "Date of birth"
+          },
+          "gender": {
+            "type": "ChoiceField",
+            "required": false,
+            "read_only": false,
+            "allow_blank": false,
+            "help_text": "None",
+            "label": "Gender",
+            "choices": [
+              "M",
+              "F"
+            ]
+          }
+        }
+      },
+      "occupation_code": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 16,
+        "help_text": "None",
+        "label": "Occupation code"
+      },
+      "occupation_category": {
+        "type": "IntegerField",
+        "required": true,
+        "read_only": false,
+        "min_value": "1",
+        "max_value": "6",
+        "help_text": "None",
+        "label": "Occupation category"
+      },
+      "has_social_security": {
+        "type": "BooleanField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "Has social security"
+      },
+      "channel_code": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "Channel code"
+      }
+    },
+    "response_fields": {
+      "quote_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "试算单号"
+      },
+      "product_code": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "产品代码"
+      },
+      "product_name": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 128,
+        "help_text": "None",
+        "label": "产品名称"
+      },
+      "plan_code": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "计划代码"
+      },
+      "plan_name": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 128,
+        "help_text": "None",
+        "label": "计划名称"
+      },
+      "applicant": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "投保人信息"
+      },
+      "insured": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "被保人信息"
+      },
+      "coverages": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保障责任"
+      },
+      "premium_detail": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保费明细"
+      },
+      "effective_date": {
+        "type": "DateField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保险起期"
+      },
+      "expiry_date": {
+        "type": "DateField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保险止期"
+      },
+      "status": {
+        "type": "ChoiceField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "试算状态",
+        "choices": [
+          "QUOTED",
+          "UNDERWRITTEN",
+          "ISSUED",
+          "EXPIRED"
+        ]
+      },
+      "valid_until": {
+        "type": "DateTimeField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "有效截止时间"
+      },
+      "created_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "创建时间"
+      }
+    },
+    "source_branch": "dev-master"
+  },
+  {
+    "method": "GET",
+    "path": "/api/insurance/premium-trials/{quote_no}/",
+    "view": "PremiumQuoteDetailView",
+    "description": "接口：GET /api/insurance/premium-trials/{quote_no}/。\n\n    用途：查询试算单详情，优先读取 Redis 缓存，未命中时查询数据库并回写缓存。",
+    "request_fields": null,
+    "response_fields": {
+      "quote_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "试算单号"
+      },
+      "product_code": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "产品代码"
+      },
+      "product_name": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 128,
+        "help_text": "None",
+        "label": "产品名称"
+      },
+      "plan_code": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "计划代码"
+      },
+      "plan_name": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 128,
+        "help_text": "None",
+        "label": "计划名称"
+      },
+      "applicant": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "投保人信息"
+      },
+      "insured": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "被保人信息"
+      },
+      "coverages": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保障责任"
+      },
+      "premium_detail": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保费明细"
+      },
+      "effective_date": {
+        "type": "DateField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保险起期"
+      },
+      "expiry_date": {
+        "type": "DateField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保险止期"
+      },
+      "status": {
+        "type": "ChoiceField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "试算状态",
+        "choices": [
+          "QUOTED",
+          "UNDERWRITTEN",
+          "ISSUED",
+          "EXPIRED"
+        ]
+      },
+      "valid_until": {
+        "type": "DateTimeField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "有效截止时间"
+      },
+      "created_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "创建时间"
+      }
+    },
+    "source_branch": "dev-master"
+  },
+  {
+    "method": "POST",
+    "path": "/api/insurance/applications/",
+    "view": "InsuranceApplicationView",
+    "description": "接口：POST /api/insurance/applications/。\n\n    用途：创建投保单，沉淀告知、受益人和投保确认留痕。",
+    "request_fields": {
+      "quote_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "Quote no"
+      },
+      "disclosures": {
+        "type": "DictField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "Disclosures",
+        "child": {
+          "type": "JSONField",
+          "required": true,
+          "read_only": false,
+          "help_text": "None"
+        }
+      },
+      "beneficiary_type": {
+        "type": "ChoiceField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Beneficiary type",
+        "choices": [
+          "LEGAL",
+          "DESIGNATED"
+        ]
+      },
+      "beneficiaries": {
+        "type": "ListField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "Beneficiaries",
+        "child": {
+          "type": "DictField",
+          "required": true,
+          "read_only": false,
+          "help_text": "None",
+          "child": {
+            "type": "_UnvalidatedField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": true,
+            "help_text": "None"
+          }
+        }
+      },
+      "consents": {
+        "type": "DictField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "Consents",
+        "child": {
+          "type": "_UnvalidatedField",
+          "required": true,
+          "read_only": false,
+          "allow_blank": true,
+          "help_text": "None"
+        }
+      },
+      "channel_code": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "Channel code"
+      }
+    },
+    "response_fields": {
+      "application_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "投保单号"
+      },
+      "quote_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Quote no"
+      },
+      "status": {
+        "type": "ChoiceField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "投保单状态",
+        "choices": [
+          "CREATED",
+          "SUBMITTED",
+          "UNDERWRITING_APPROVED",
+          "UNDERWRITING_REFERRED",
+          "UNDERWRITING_DECLINED",
+          "PAYMENT_PENDING",
+          "PAID",
+          "ISSUED",
+          "CLOSED"
+        ]
+      },
+      "product_code": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Product code"
+      },
+      "product_name": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Product name"
+      },
+      "plan_code": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Plan code"
+      },
+      "plan_name": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Plan name"
+      },
+      "applicant": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "投保人信息"
+      },
+      "insured": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "被保人信息"
+      },
+      "disclosures": {
+        "type": "JSONField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "核保告知信息"
+      },
+      "beneficiary_type": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 16,
+        "help_text": "None",
+        "label": "受益人类型"
+      },
+      "beneficiaries": {
+        "type": "JSONField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "指定受益人列表"
+      },
+      "consents": {
+        "type": "JSONField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "投保确认信息"
+      },
+      "premium_detail": {
+        "type": "JSONField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "Premium detail"
+      },
+      "channel_code": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "渠道代码"
+      },
+      "submitted_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "提交时间"
+      },
+      "created_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "创建时间"
+      },
+      "updated_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "更新时间"
+      }
+    },
+    "source_branch": "dev-master"
+  },
+  {
+    "method": "GET",
+    "path": "/api/insurance/applications/{application_no}/",
+    "view": "InsuranceApplicationDetailView",
+    "description": "接口：GET /api/insurance/applications/{application_no}/。\n\n    用途：查询投保单详情。",
+    "request_fields": null,
+    "response_fields": {
+      "application_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "投保单号"
+      },
+      "quote_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Quote no"
+      },
+      "status": {
+        "type": "ChoiceField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "投保单状态",
+        "choices": [
+          "CREATED",
+          "SUBMITTED",
+          "UNDERWRITING_APPROVED",
+          "UNDERWRITING_REFERRED",
+          "UNDERWRITING_DECLINED",
+          "PAYMENT_PENDING",
+          "PAID",
+          "ISSUED",
+          "CLOSED"
+        ]
+      },
+      "product_code": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Product code"
+      },
+      "product_name": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Product name"
+      },
+      "plan_code": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Plan code"
+      },
+      "plan_name": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Plan name"
+      },
+      "applicant": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "投保人信息"
+      },
+      "insured": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "被保人信息"
+      },
+      "disclosures": {
+        "type": "JSONField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "核保告知信息"
+      },
+      "beneficiary_type": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 16,
+        "help_text": "None",
+        "label": "受益人类型"
+      },
+      "beneficiaries": {
+        "type": "JSONField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "指定受益人列表"
+      },
+      "consents": {
+        "type": "JSONField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "投保确认信息"
+      },
+      "premium_detail": {
+        "type": "JSONField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "Premium detail"
+      },
+      "channel_code": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "渠道代码"
+      },
+      "submitted_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "提交时间"
+      },
+      "created_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "创建时间"
+      },
+      "updated_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "更新时间"
+      }
+    },
+    "source_branch": "dev-master"
+  },
+  {
+    "method": "POST",
+    "path": "/api/insurance/applications/{application_no}/underwriting/",
+    "view": "ApplicationUnderwritingView",
+    "description": "接口：POST /api/insurance/applications/{application_no}/underwriting/。\n\n    用途：按投保单提交核保，并把核保结论反写投保单状态。",
+    "request_fields": {
+      "application_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "Application no"
+      },
+      "disclosures": {
+        "type": "DictField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "Disclosures",
+        "child": {
+          "type": "JSONField",
+          "required": true,
+          "read_only": false,
+          "help_text": "None"
+        }
+      },
+      "beneficiary_type": {
+        "type": "ChoiceField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Beneficiary type",
+        "choices": [
+          "LEGAL",
+          "DESIGNATED"
+        ]
+      },
+      "beneficiaries": {
+        "type": "ListField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "Beneficiaries",
+        "child": {
+          "type": "DictField",
+          "required": true,
+          "read_only": false,
+          "help_text": "None",
+          "child": {
+            "type": "_UnvalidatedField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": true,
+            "help_text": "None"
+          }
+        }
+      }
+    },
+    "response_fields": {
+      "uw_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "核保单号"
+      },
+      "quote_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Quote no"
+      },
+      "application_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Application no"
+      },
+      "decision": {
+        "type": "ChoiceField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "核保结论",
+        "choices": [
+          "APPROVED",
+          "REFERRED",
+          "DECLINED"
+        ]
+      },
+      "risk_level": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 16,
+        "help_text": "None",
+        "label": "风险等级"
+      },
+      "reasons": {
+        "type": "JSONField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "核保原因"
+      },
+      "manual_review_required": {
+        "type": "BooleanField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "是否人工核保"
+      },
+      "valid_until": {
+        "type": "DateTimeField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "有效截止时间"
+      },
+      "created_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "创建时间"
+      }
+    },
+    "source_branch": "dev-master"
+  },
+  {
+    "method": "POST",
+    "path": "/api/insurance/underwriting/",
+    "view": "UnderwritingView",
+    "description": "接口：POST /api/insurance/underwriting/。\n\n    用途：旧版自动核保，直接基于试算单生成核保记录；推荐新流程优先使用投保单核保接口。",
+    "request_fields": {
+      "quote_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "Quote no"
+      },
+      "disclosures": {
+        "type": "DictField",
+        "required": true,
+        "read_only": false,
+        "help_text": "健康告知、职业告知、既往理赔等核保告知项",
+        "label": "Disclosures",
+        "child": {
+          "type": "JSONField",
+          "required": true,
+          "read_only": false,
+          "help_text": "None"
+        }
+      },
+      "beneficiary_type": {
+        "type": "ChoiceField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Beneficiary type",
+        "choices": [
+          "LEGAL",
+          "DESIGNATED"
+        ]
+      },
+      "beneficiaries": {
+        "type": "ListField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "Beneficiaries",
+        "child": {
+          "type": "DictField",
+          "required": true,
+          "read_only": false,
+          "help_text": "None",
+          "child": {
+            "type": "_UnvalidatedField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": true,
+            "help_text": "None"
+          }
+        }
+      }
+    },
+    "response_fields": {
+      "uw_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "核保单号"
+      },
+      "quote_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Quote no"
+      },
+      "application_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Application no"
+      },
+      "decision": {
+        "type": "ChoiceField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "核保结论",
+        "choices": [
+          "APPROVED",
+          "REFERRED",
+          "DECLINED"
+        ]
+      },
+      "risk_level": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 16,
+        "help_text": "None",
+        "label": "风险等级"
+      },
+      "reasons": {
+        "type": "JSONField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "核保原因"
+      },
+      "manual_review_required": {
+        "type": "BooleanField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "是否人工核保"
+      },
+      "valid_until": {
+        "type": "DateTimeField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "有效截止时间"
+      },
+      "created_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "创建时间"
+      }
+    },
+    "source_branch": "dev-master"
+  },
+  {
+    "method": "GET",
+    "path": "/api/insurance/underwriting/{underwriting_no}/",
+    "view": "UnderwritingDetailView",
+    "description": "接口：GET /api/insurance/underwriting/{underwriting_no}/。\n\n    用途：查询核保记录详情。",
+    "request_fields": null,
+    "response_fields": {
+      "uw_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "核保单号"
+      },
+      "quote_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Quote no"
+      },
+      "application_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Application no"
+      },
+      "decision": {
+        "type": "ChoiceField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "核保结论",
+        "choices": [
+          "APPROVED",
+          "REFERRED",
+          "DECLINED"
+        ]
+      },
+      "risk_level": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 16,
+        "help_text": "None",
+        "label": "风险等级"
+      },
+      "reasons": {
+        "type": "JSONField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "核保原因"
+      },
+      "manual_review_required": {
+        "type": "BooleanField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "是否人工核保"
+      },
+      "valid_until": {
+        "type": "DateTimeField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "有效截止时间"
+      },
+      "created_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "创建时间"
+      }
+    },
+    "source_branch": "dev-master"
+  },
+  {
+    "method": "POST",
+    "path": "/api/insurance/underwriting/{underwriting_no}/manual-review/",
+    "view": "ManualUnderwritingReviewView",
+    "description": "接口：POST /api/insurance/underwriting/{underwriting_no}/manual-review/。\n\n    用途：人工核保复核，把自动核保转人工的案件改为最终结论。",
+    "request_fields": {
+      "underwriting_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "Underwriting no"
+      },
+      "decision": {
+        "type": "ChoiceField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Decision",
+        "choices": [
+          "APPROVED",
+          "REFERRED",
+          "DECLINED"
+        ]
+      },
+      "risk_level": {
+        "type": "ChoiceField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Risk level",
+        "choices": [
+          "LOW",
+          "MEDIUM",
+          "HIGH",
+          "REJECT"
+        ]
+      },
+      "reasons": {
+        "type": "ListField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "Reasons",
+        "child": {
+          "type": "CharField",
+          "required": true,
+          "read_only": false,
+          "allow_blank": false,
+          "help_text": "None"
+        }
+      },
+      "review_notes": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": true,
+        "help_text": "None",
+        "label": "Review notes"
+      },
+      "reviewer": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 64,
+        "help_text": "None",
+        "label": "Reviewer"
+      }
+    },
+    "response_fields": {
+      "review_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "人工核保单号"
+      },
+      "underwriting_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Underwriting no"
+      },
+      "decision": {
+        "type": "ChoiceField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "人工核保结论",
+        "choices": [
+          "APPROVED",
+          "REFERRED",
+          "DECLINED"
+        ]
+      },
+      "risk_level": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 16,
+        "help_text": "None",
+        "label": "人工评定风险等级"
+      },
+      "reasons": {
+        "type": "JSONField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "人工核保原因"
+      },
+      "review_notes": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": true,
+        "help_text": "None",
+        "label": "复核备注"
+      },
+      "reviewer": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 64,
+        "help_text": "None",
+        "label": "复核人员"
+      },
+      "reviewed_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "复核时间"
+      }
+    },
+    "source_branch": "dev-master"
+  },
+  {
+    "method": "POST",
+    "path": "/api/insurance/payment-orders/",
+    "view": "PaymentOrderView",
+    "description": "接口：POST /api/insurance/payment-orders/。\n\n    用途：创建服务端支付订单，后续出单只认服务端支付状态。",
+    "request_fields": {
+      "application_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "Application no"
+      },
+      "pay_channel": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "Pay channel"
+      }
+    },
+    "response_fields": {
+      "pay_order_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "支付订单号"
+      },
+      "application_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Application no"
+      },
+      "quote_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Quote no"
+      },
+      "underwriting_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Underwriting no"
+      },
+      "amount": {
+        "type": "DecimalField",
+        "required": true,
+        "read_only": false,
+        "min_value": "None",
+        "max_value": "None",
+        "help_text": "None",
+        "label": "应付金额"
+      },
+      "status": {
+        "type": "ChoiceField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "支付状态",
+        "choices": [
+          "CREATED",
+          "SUCCESS",
+          "FAILED",
+          "CLOSED"
+        ]
+      },
+      "pay_channel": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "支付渠道"
+      },
+      "external_trade_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": true,
+        "max_length": 64,
+        "help_text": "None",
+        "label": "外部交易流水号"
+      },
+      "paid_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "支付成功时间"
+      },
+      "created_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "创建时间"
+      },
+      "updated_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "更新时间"
+      }
+    },
+    "source_branch": "dev-master"
+  },
+  {
+    "method": "GET",
+    "path": "/api/insurance/payment-orders/{pay_order_no}/",
+    "view": "PaymentOrderDetailView",
+    "description": "接口：GET /api/insurance/payment-orders/{pay_order_no}/。\n\n    用途：查询支付订单详情。",
+    "request_fields": null,
+    "response_fields": {
+      "pay_order_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "支付订单号"
+      },
+      "application_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Application no"
+      },
+      "quote_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Quote no"
+      },
+      "underwriting_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Underwriting no"
+      },
+      "amount": {
+        "type": "DecimalField",
+        "required": true,
+        "read_only": false,
+        "min_value": "None",
+        "max_value": "None",
+        "help_text": "None",
+        "label": "应付金额"
+      },
+      "status": {
+        "type": "ChoiceField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "支付状态",
+        "choices": [
+          "CREATED",
+          "SUCCESS",
+          "FAILED",
+          "CLOSED"
+        ]
+      },
+      "pay_channel": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "支付渠道"
+      },
+      "external_trade_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": true,
+        "max_length": 64,
+        "help_text": "None",
+        "label": "外部交易流水号"
+      },
+      "paid_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "支付成功时间"
+      },
+      "created_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "创建时间"
+      },
+      "updated_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "更新时间"
+      }
+    },
+    "source_branch": "dev-master"
+  },
+  {
+    "method": "POST",
+    "path": "/api/insurance/payment-orders/{pay_order_no}/confirm/",
+    "view": "PaymentOrderConfirmView",
+    "description": "接口：POST /api/insurance/payment-orders/{pay_order_no}/confirm/。\n\n    用途：模拟支付中心回调，校验金额并更新支付结果。",
+    "request_fields": {
+      "pay_order_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "Pay order no"
+      },
+      "pay_status": {
+        "type": "ChoiceField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Pay status",
+        "choices": [
+          "SUCCESS",
+          "FAILED"
+        ]
+      },
+      "paid_amount": {
+        "type": "DecimalField",
+        "required": true,
+        "read_only": false,
+        "min_value": "None",
+        "max_value": "None",
+        "help_text": "None",
+        "label": "Paid amount"
+      },
+      "external_trade_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": true,
+        "max_length": 64,
+        "help_text": "None",
+        "label": "External trade no"
+      },
+      "pay_channel": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": true,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "Pay channel"
+      }
+    },
+    "response_fields": {
+      "pay_order_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "支付订单号"
+      },
+      "application_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Application no"
+      },
+      "quote_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Quote no"
+      },
+      "underwriting_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Underwriting no"
+      },
+      "amount": {
+        "type": "DecimalField",
+        "required": true,
+        "read_only": false,
+        "min_value": "None",
+        "max_value": "None",
+        "help_text": "None",
+        "label": "应付金额"
+      },
+      "status": {
+        "type": "ChoiceField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "支付状态",
+        "choices": [
+          "CREATED",
+          "SUCCESS",
+          "FAILED",
+          "CLOSED"
+        ]
+      },
+      "pay_channel": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "支付渠道"
+      },
+      "external_trade_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": true,
+        "max_length": 64,
+        "help_text": "None",
+        "label": "外部交易流水号"
+      },
+      "paid_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "支付成功时间"
+      },
+      "created_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "创建时间"
+      },
+      "updated_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "更新时间"
+      }
+    },
+    "source_branch": "dev-master"
+  },
+  {
+    "method": "POST",
+    "path": "/api/insurance/policies/",
+    "view": "IssuePolicyView",
+    "description": "接口：POST /api/insurance/policies/。\n\n    用途：旧版承保出单，直接基于核保记录和前端支付信息生成保单。",
+    "request_fields": {
+      "underwriting_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "Underwriting no"
+      },
+      "payment": {
+        "type": "DictField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "Payment",
+        "child": {
+          "type": "_UnvalidatedField",
+          "required": true,
+          "read_only": false,
+          "allow_blank": true,
+          "help_text": "None"
+        }
+      },
+      "delivery": {
+        "type": "DictField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "Delivery",
+        "child": {
+          "type": "_UnvalidatedField",
+          "required": true,
+          "read_only": false,
+          "allow_blank": true,
+          "help_text": "None"
+        }
+      },
+      "consent_confirmed": {
+        "type": "BooleanField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "Consent confirmed"
+      }
+    },
+    "response_fields": {
+      "policy_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "保单号"
+      },
+      "application_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Application no"
+      },
+      "quote_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Quote no"
+      },
+      "underwriting_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Underwriting no"
+      },
+      "pay_order_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Pay order no"
+      },
+      "status": {
+        "type": "ChoiceField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "保单状态",
+        "choices": [
+          "ISSUED",
+          "CANCELLED"
+        ]
+      },
+      "applicant": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "投保人信息"
+      },
+      "insured": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "被保人信息"
+      },
+      "coverages": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保障责任"
+      },
+      "premium_detail": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保费明细"
+      },
+      "payment": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "支付信息"
+      },
+      "effective_date": {
+        "type": "DateField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保险起期"
+      },
+      "expiry_date": {
+        "type": "DateField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保险止期"
+      },
+      "issued_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "出单时间"
+      },
+      "electronic_policy": {
+        "type": "ElectronicPolicySerializer",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "Electronic policy",
+        "children": {
+          "document_no": {
+            "type": "CharField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": false,
+            "max_length": 32,
+            "help_text": "None",
+            "label": "电子保单文档号"
+          },
+          "policy_no": {
+            "type": "CharField",
+            "required": false,
+            "read_only": true,
+            "allow_blank": false,
+            "help_text": "None",
+            "label": "Policy no"
+          },
+          "download_url": {
+            "type": "CharField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": false,
+            "max_length": 256,
+            "help_text": "None",
+            "label": "下载地址"
+          },
+          "verify_code": {
+            "type": "CharField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": false,
+            "max_length": 32,
+            "help_text": "None",
+            "label": "验真码"
+          },
+          "generated_at": {
+            "type": "DateTimeField",
+            "required": false,
+            "read_only": true,
+            "help_text": "None",
+            "label": "生成时间"
+          }
+        }
+      },
+      "delivery_records": {
+        "type": "ListSerializer",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "Delivery records",
+        "child": {
+          "type": "DeliveryRecordSerializer",
+          "required": false,
+          "read_only": true,
+          "help_text": "None",
+          "children": {
+            "delivery_no": {
+              "type": "CharField",
+              "required": true,
+              "read_only": false,
+              "allow_blank": false,
+              "max_length": 32,
+              "help_text": "None",
+              "label": "送达流水号"
+            },
+            "policy_no": {
+              "type": "CharField",
+              "required": false,
+              "read_only": true,
+              "allow_blank": false,
+              "help_text": "None",
+              "label": "Policy no"
+            },
+            "channel": {
+              "type": "ChoiceField",
+              "required": true,
+              "read_only": false,
+              "allow_blank": false,
+              "help_text": "None",
+              "label": "送达渠道",
+              "choices": [
+                "EMAIL",
+                "SMS"
+              ]
+            },
+            "recipient": {
+              "type": "CharField",
+              "required": true,
+              "read_only": false,
+              "allow_blank": false,
+              "max_length": 128,
+              "help_text": "None",
+              "label": "收件人"
+            },
+            "status": {
+              "type": "ChoiceField",
+              "required": false,
+              "read_only": false,
+              "allow_blank": false,
+              "help_text": "None",
+              "label": "送达状态",
+              "choices": [
+                "SENT",
+                "FAILED"
+              ]
+            },
+            "payload": {
+              "type": "JSONField",
+              "required": false,
+              "read_only": false,
+              "help_text": "None",
+              "label": "送达内容"
+            },
+            "sent_at": {
+              "type": "DateTimeField",
+              "required": false,
+              "read_only": true,
+              "help_text": "None",
+              "label": "发送时间"
+            }
+          }
+        }
+      }
+    },
+    "source_branch": "dev-master"
+  },
+  {
+    "method": "POST",
+    "path": "/api/insurance/application-policies/",
+    "view": "IssueApplicationPolicyView",
+    "description": "接口：POST /api/insurance/application-policies/。\n\n    用途：推荐出单接口，基于投保单、核保记录和服务端成功支付订单生成保单。",
+    "request_fields": {
+      "application_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "Application no"
+      },
+      "delivery": {
+        "type": "DictField",
+        "required": false,
+        "read_only": false,
+        "help_text": "None",
+        "label": "Delivery",
+        "child": {
+          "type": "_UnvalidatedField",
+          "required": true,
+          "read_only": false,
+          "allow_blank": true,
+          "help_text": "None"
+        }
+      }
+    },
+    "response_fields": {
+      "policy_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "保单号"
+      },
+      "application_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Application no"
+      },
+      "quote_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Quote no"
+      },
+      "underwriting_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Underwriting no"
+      },
+      "pay_order_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Pay order no"
+      },
+      "status": {
+        "type": "ChoiceField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "保单状态",
+        "choices": [
+          "ISSUED",
+          "CANCELLED"
+        ]
+      },
+      "applicant": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "投保人信息"
+      },
+      "insured": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "被保人信息"
+      },
+      "coverages": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保障责任"
+      },
+      "premium_detail": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保费明细"
+      },
+      "payment": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "支付信息"
+      },
+      "effective_date": {
+        "type": "DateField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保险起期"
+      },
+      "expiry_date": {
+        "type": "DateField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保险止期"
+      },
+      "issued_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "出单时间"
+      },
+      "electronic_policy": {
+        "type": "ElectronicPolicySerializer",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "Electronic policy",
+        "children": {
+          "document_no": {
+            "type": "CharField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": false,
+            "max_length": 32,
+            "help_text": "None",
+            "label": "电子保单文档号"
+          },
+          "policy_no": {
+            "type": "CharField",
+            "required": false,
+            "read_only": true,
+            "allow_blank": false,
+            "help_text": "None",
+            "label": "Policy no"
+          },
+          "download_url": {
+            "type": "CharField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": false,
+            "max_length": 256,
+            "help_text": "None",
+            "label": "下载地址"
+          },
+          "verify_code": {
+            "type": "CharField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": false,
+            "max_length": 32,
+            "help_text": "None",
+            "label": "验真码"
+          },
+          "generated_at": {
+            "type": "DateTimeField",
+            "required": false,
+            "read_only": true,
+            "help_text": "None",
+            "label": "生成时间"
+          }
+        }
+      },
+      "delivery_records": {
+        "type": "ListSerializer",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "Delivery records",
+        "child": {
+          "type": "DeliveryRecordSerializer",
+          "required": false,
+          "read_only": true,
+          "help_text": "None",
+          "children": {
+            "delivery_no": {
+              "type": "CharField",
+              "required": true,
+              "read_only": false,
+              "allow_blank": false,
+              "max_length": 32,
+              "help_text": "None",
+              "label": "送达流水号"
+            },
+            "policy_no": {
+              "type": "CharField",
+              "required": false,
+              "read_only": true,
+              "allow_blank": false,
+              "help_text": "None",
+              "label": "Policy no"
+            },
+            "channel": {
+              "type": "ChoiceField",
+              "required": true,
+              "read_only": false,
+              "allow_blank": false,
+              "help_text": "None",
+              "label": "送达渠道",
+              "choices": [
+                "EMAIL",
+                "SMS"
+              ]
+            },
+            "recipient": {
+              "type": "CharField",
+              "required": true,
+              "read_only": false,
+              "allow_blank": false,
+              "max_length": 128,
+              "help_text": "None",
+              "label": "收件人"
+            },
+            "status": {
+              "type": "ChoiceField",
+              "required": false,
+              "read_only": false,
+              "allow_blank": false,
+              "help_text": "None",
+              "label": "送达状态",
+              "choices": [
+                "SENT",
+                "FAILED"
+              ]
+            },
+            "payload": {
+              "type": "JSONField",
+              "required": false,
+              "read_only": false,
+              "help_text": "None",
+              "label": "送达内容"
+            },
+            "sent_at": {
+              "type": "DateTimeField",
+              "required": false,
+              "read_only": true,
+              "help_text": "None",
+              "label": "发送时间"
+            }
+          }
+        }
+      }
+    },
+    "source_branch": "dev-master"
+  },
+  {
+    "method": "GET",
+    "path": "/api/insurance/policies/{policy_no}/",
+    "view": "PolicyDetailView",
+    "description": "接口：GET /api/insurance/policies/{policy_no}/。\n\n    用途：查询保单详情，包含电子保单和送达记录。",
+    "request_fields": null,
+    "response_fields": {
+      "policy_no": {
+        "type": "CharField",
+        "required": true,
+        "read_only": false,
+        "allow_blank": false,
+        "max_length": 32,
+        "help_text": "None",
+        "label": "保单号"
+      },
+      "application_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Application no"
+      },
+      "quote_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Quote no"
+      },
+      "underwriting_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Underwriting no"
+      },
+      "pay_order_no": {
+        "type": "CharField",
+        "required": false,
+        "read_only": true,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "Pay order no"
+      },
+      "status": {
+        "type": "ChoiceField",
+        "required": false,
+        "read_only": false,
+        "allow_blank": false,
+        "help_text": "None",
+        "label": "保单状态",
+        "choices": [
+          "ISSUED",
+          "CANCELLED"
+        ]
+      },
+      "applicant": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "投保人信息"
+      },
+      "insured": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "被保人信息"
+      },
+      "coverages": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保障责任"
+      },
+      "premium_detail": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保费明细"
+      },
+      "payment": {
+        "type": "JSONField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "支付信息"
+      },
+      "effective_date": {
+        "type": "DateField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保险起期"
+      },
+      "expiry_date": {
+        "type": "DateField",
+        "required": true,
+        "read_only": false,
+        "help_text": "None",
+        "label": "保险止期"
+      },
+      "issued_at": {
+        "type": "DateTimeField",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "出单时间"
+      },
+      "electronic_policy": {
+        "type": "ElectronicPolicySerializer",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "Electronic policy",
+        "children": {
+          "document_no": {
+            "type": "CharField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": false,
+            "max_length": 32,
+            "help_text": "None",
+            "label": "电子保单文档号"
+          },
+          "policy_no": {
+            "type": "CharField",
+            "required": false,
+            "read_only": true,
+            "allow_blank": false,
+            "help_text": "None",
+            "label": "Policy no"
+          },
+          "download_url": {
+            "type": "CharField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": false,
+            "max_length": 256,
+            "help_text": "None",
+            "label": "下载地址"
+          },
+          "verify_code": {
+            "type": "CharField",
+            "required": true,
+            "read_only": false,
+            "allow_blank": false,
+            "max_length": 32,
+            "help_text": "None",
+            "label": "验真码"
+          },
+          "generated_at": {
+            "type": "DateTimeField",
+            "required": false,
+            "read_only": true,
+            "help_text": "None",
+            "label": "生成时间"
+          }
+        }
+      },
+      "delivery_records": {
+        "type": "ListSerializer",
+        "required": false,
+        "read_only": true,
+        "help_text": "None",
+        "label": "Delivery records",
+        "child": {
+          "type": "DeliveryRecordSerializer",
+          "required": false,
+          "read_only": true,
+          "help_text": "None",
+          "children": {
+            "delivery_no": {
+              "type": "CharField",
+              "required": true,
+              "read_only": false,
+              "allow_blank": false,
+              "max_length": 32,
+              "help_text": "None",
+              "label": "送达流水号"
+            },
+            "policy_no": {
+              "type": "CharField",
+              "required": false,
+              "read_only": true,
+              "allow_blank": false,
+              "help_text": "None",
+              "label": "Policy no"
+            },
+            "channel": {
+              "type": "ChoiceField",
+              "required": true,
+              "read_only": false,
+              "allow_blank": false,
+              "help_text": "None",
+              "label": "送达渠道",
+              "choices": [
+                "EMAIL",
+                "SMS"
+              ]
+            },
+            "recipient": {
+              "type": "CharField",
+              "required": true,
+              "read_only": false,
+              "allow_blank": false,
+              "max_length": 128,
+              "help_text": "None",
+              "label": "收件人"
+            },
+            "status": {
+              "type": "ChoiceField",
+              "required": false,
+              "read_only": false,
+              "allow_blank": false,
+              "help_text": "None",
+              "label": "送达状态",
+              "choices": [
+                "SENT",
+                "FAILED"
+              ]
+            },
+            "payload": {
+              "type": "JSONField",
+              "required": false,
+              "read_only": false,
+              "help_text": "None",
+              "label": "送达内容"
+            },
+            "sent_at": {
+              "type": "DateTimeField",
+              "required": false,
+              "read_only": true,
+              "help_text": "None",
+              "label": "发送时间"
+            }
+          }
+        }
+      }
+    },
+    "source_branch": "dev-master"
+  }
+]

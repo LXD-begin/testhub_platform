@@ -1,64 +1,42 @@
-# Django Insurance Backend
+# 接口自动化测试项目
 
-这是一个 Django + Django REST Framework 后端项目，当前实现了 C 端保险产品出单流程的后端原型。项目只包含后端代码，不包含前端页面、Celery、Channels 或历史自动化测试平台模块。
+这个分支是独立的接口自动化测试项目，专门维护 `python + pytest + requests + allure + logging + openpyxl` 这套软件测试框架。
 
-接口详情不放在 README 中，统一放在 `docs/` 目录：
+后端接口项目不放在这个分支里。后端代码统一在 `dev-master` 分支维护，本分支的工具通过 Git 读取 `dev-master` 的提交变化和接口代码。
 
-- `docs/insurance_real_issuance_api.md`：保险出单流程接口文档
-- `docs/insurance_api_test_reference.md`：接口测试设计参考文档，包含入参、响应字段、字段含义和用例关注点
-- `docs/insurance_real_backend_optimization.md`：真实保险后端能力优化说明
-- `docs/insurance_crypto.md`：保险接口加密说明
-- `docs/redis_cache.md`：Redis 缓存说明
+## 分支职责
+
+| 分支 | 职责 |
+| --- | --- |
+| `dev-master` | Django 后端接口项目，写接口、模型、序列化器、业务逻辑 |
+| `ai_api_project` | 接口自动化测试项目，写 Excel 用例、pytest 执行逻辑、Allure 报告、Git 变化分析 |
 
 ## 目录结构
 
 ```text
 aitesthub/
-├── apps/
-│   ├── __init__.py
-│   └── insurance/
-│       ├── admin.py
-│       ├── apps.py
-│       ├── cache.py
-│       ├── crypto.py
-│       ├── migrations/
-│       ├── models.py
-│       ├── serializers.py
-│       ├── services.py
-│       ├── tests.py
-│       ├── urls.py
-│       └── views.py
-├── backend/
-│   ├── __init__.py
-│   ├── asgi.py
-│   ├── request_logging.py
-│   ├── settings.py
-│   ├── urls.py
-│   └── wsgi.py
-├── docs/
-│   ├── insurance_crypto.md
-│   ├── insurance_api_test_reference.md
-│   ├── insurance_real_backend_optimization.md
-│   ├── insurance_real_issuance_api.md
-│   └── redis_cache.md
-├── logs/
-├── scripts/
-│   ├── generate_insurance_cases.py
-│   ├── start_local_redis_ui.ps1
-│   └── test_insurance_ui_flow.py
-├── .env
-├── .env.example
-├── manage.py
-├── requirements.txt
-└── README.md
+├─ api_tests/
+│  ├─ common/
+│  │  ├─ assertions.py              # 统一响应断言
+│  │  ├─ context.py                 # 用例变量提取和 ${变量} 替换
+│  │  ├─ excel_reader.py            # Excel 用例读取
+│  │  ├─ json_path.py               # 简单 JSON 路径取值
+│  │  ├─ logger.py                  # 日志配置
+│  │  └─ request_client.py          # requests 请求封装
+│  ├─ data/
+│  │  └─ insurance_api_cases.xlsx   # 接口自动化 Excel 用例
+│  ├─ reports/
+│  │  └─ api_contract.json          # 从 dev-master 生成的接口契约
+│  ├─ testcases/
+│  │  └─ test_excel_api_cases.py    # pytest 测试入口
+│  └─ tools/
+│     ├─ generate_api_contract.py   # 读取 dev-master 后端代码并生成接口契约
+│     ├─ generate_insurance_cases_excel.py
+│     └─ inspect_git_api_changes.py # 分析 dev-master 最新提交对接口测试的影响
+├─ pytest.ini
+├─ requirements.txt
+└─ README.md
 ```
-
-## 环境要求
-
-- Python 3.12
-- MySQL 8.x 或兼容版本
-- Redis，本地开发可使用 Windows Redis fork
-- Windows PowerShell
 
 ## 安装依赖
 
@@ -77,218 +55,162 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## 环境变量
+## 后端服务要求
 
-本地开发使用 `.env`，示例见 `.env.example`。
+执行接口自动化前，需要先让 `dev-master` 分支的后端服务运行起来。
 
-核心配置：
-
-```env
-SECRET_KEY=django-insecure-change-me
-DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
-INSURANCE_CRYPTO_KEY=replace-with-a-strong-insurance-api-key
-INSURANCE_API_KEY=
-INSURANCE_TOKEN_AUTH_ENABLED=True
-INSURANCE_TOKEN_TTL=7200
-
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=your-password
-DB_NAME=baoxian
-
-REDIS_URL=redis://127.0.0.1:6379/1
-CACHE_TIMEOUT=86400
-CACHE_KEY_PREFIX=aitesthub
-INSURANCE_DETAIL_CACHE_TIMEOUT=86400
-```
-
-## 数据库初始化
-
-先确认 MySQL 中已经创建数据库：
-
-```sql
-CREATE DATABASE baoxian DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
-
-执行迁移：
+推荐用 `git worktree` 单独开一个后端工作区，这样 `ai_api_project` 自动化分支和 `dev-master` 后端分支不会互相覆盖：
 
 ```powershell
 cd E:\aitesthub
+git worktree add E:\aitesthub-backend dev-master
+cd E:\aitesthub-backend
 .venv\Scripts\activate
-python manage.py migrate
-```
-
-查看迁移状态：
-
-```powershell
-python manage.py showmigrations
-```
-
-检查项目配置：
-
-```powershell
-python manage.py check
-```
-
-## Redis 启动
-
-本地 Windows 已安装 `redis-windows` fork，并提供了启动脚本。
-
-启动 Redis 和 Redis Commander 可视化界面：
-
-```powershell
-cd E:\aitesthub
-powershell -ExecutionPolicy Bypass -File scripts\start_local_redis_ui.ps1
-```
-
-启动后地址：
-
-```text
-Redis: redis://127.0.0.1:6379/1
-Redis Commander: http://127.0.0.1:8081
-```
-
-手动检查 Redis：
-
-```powershell
-redis-cli ping
-```
-
-正常返回：
-
-```text
-PONG
-```
-
-验证 Django 缓存：
-
-```powershell
-python manage.py shell -c "from django.core.cache import cache; cache.set('ping', 'pong', 30); print(cache.get('ping'))"
-```
-
-正常返回：
-
-```text
-pong
-```
-
-## 启动后端服务
-
-```powershell
-cd E:\aitesthub
-.venv\Scripts\activate
-python manage.py runserver
-```
-
-默认访问：
-
-```text
-http://127.0.0.1:8000/
-```
-
-保险接口统一前缀：
-
-```text
-/api/insurance/
-```
-
-获取随机 token：
-
-```text
-POST /api/insurance/auth/token/
-```
-
-调用其他保险接口时带：
-
-```http
-Authorization: Bearer <access_token>
-```
-
-产品配置查询：
-
-```text
-GET /api/insurance/products/
-GET /api/insurance/products/{product_code}/
-```
-
-## 常用命令
-
-```powershell
-# 激活虚拟环境
-.venv\Scripts\activate
-
-# 安装依赖
 pip install -r requirements.txt
-
-# 检查 Django 配置
-python manage.py check
-
-# 执行数据库迁移
-python manage.py migrate
-
-# 查看迁移状态
-python manage.py showmigrations
-
-# 启动 Redis 和可视化界面
-powershell -ExecutionPolicy Bypass -File scripts\start_local_redis_ui.ps1
-
-# 启动后端
 python manage.py runserver
-
-# 运行测试
-python manage.py test
 ```
 
-## 缓存策略
+后端启动后，回到 `E:\aitesthub` 的 `ai_api_project` 分支执行自动化测试。
 
-项目已接入 Redis 缓存。当前缓存范围是保险业务的详情数据：详情 GET 会读缓存，缓存未命中时查询数据库并写入缓存；写接口成功后也会主动写入或刷新相关详情缓存。
-
-- 试算单详情
-- 核保记录详情
-- 投保单详情
-- 支付订单详情
-- 保单详情
-
-这些缓存用于降低重复查询数据库的成本。默认缓存时间为 24 小时，业务状态发生变化时会先删除旧缓存，写接口成功后再写入最新缓存，避免读到旧状态。详细说明见 `docs/redis_cache.md`。
-
-## 产品和费率配置
-
-项目已增加产品、计划、保障责任、年龄费率、职业费率配置表。执行 `python manage.py migrate` 后会初始化示例产品 `PA_C_ACCIDENT`，试算接口会读取数据库配置计算保费。
-
-如果 `.env` 配置了 `INSURANCE_API_KEY`，调用保险接口时需要带以下任一请求头：
-
-```http
-X-Insurance-API-Key: your-api-key
-Authorization: Bearer your-api-key
-```
-
-默认启用随机 token 鉴权。先调用：
-
-```http
-POST /api/insurance/auth/token/
-```
-
-响应中的 `access_token` 每次都会随机生成，后续接口带：
-
-```http
-Authorization: Bearer <access_token>
-```
-
-`INSURANCE_API_KEY` 只作为内部系统固定密钥绕过 token 校验使用；不需要可以保持为空。
-
-## 接口文档
-
-接口文档不维护在 README 中：
-
-- 推荐主流程接口：`docs/insurance_real_issuance_api.md`
-- 接口测试设计参考：`docs/insurance_api_test_reference.md`
-- 真实保险后端优化说明：`docs/insurance_real_backend_optimization.md`
-- 加密请求/响应说明：`docs/insurance_crypto.md`
-
-主流程：
+默认测试地址：
 
 ```text
-保费试算 -> 创建投保单 -> 投保单核保 -> 人工核保(可选) -> 创建支付订单 -> 支付回调确认 -> 承保出单 -> 查询保单/电子保单
+http://127.0.0.1:8000
 ```
+
+如果后端地址不是默认地址，可以在执行前指定：
+
+```powershell
+$env:API_BASE_URL="http://127.0.0.1:8000"
+pytest
+```
+
+## 执行接口自动化
+
+```powershell
+cd E:\aitesthub
+.venv\Scripts\activate
+pytest
+```
+
+只执行某一条用例：
+
+```powershell
+pytest -k AUTH_001
+```
+
+指定 Excel 用例文件：
+
+```powershell
+$env:API_CASE_FILE="E:\aitesthub\api_tests\data\insurance_api_cases.xlsx"
+pytest
+```
+
+## 查看 Allure 报告
+
+pytest 执行后会生成原始报告数据：
+
+```text
+api_tests\reports\allure-results
+```
+
+如果本机已安装 Allure 命令行：
+
+```powershell
+allure serve api_tests\reports\allure-results
+```
+
+生成静态 HTML 报告：
+
+```powershell
+allure generate api_tests\reports\allure-results -o api_tests\reports\allure-report --clean
+allure open api_tests\reports\allure-report
+```
+
+如果提示 `allure` 命令不存在，需要先安装 Allure CLI。
+
+## Excel 用例字段
+
+| 字段 | 含义 |
+| --- | --- |
+| `case_id` | 用例编号，必须唯一 |
+| `module` | 模块名，用于 Allure feature |
+| `title` | 用例标题 |
+| `enabled` | 是否启用，填 `是` 或 `否` |
+| `method` | 请求方法，例如 `GET`、`POST` |
+| `path` | 接口路径，例如 `/api/insurance/products/` |
+| `headers` | JSON 格式请求头 |
+| `params` | JSON 格式查询参数 |
+| `body` | JSON 格式请求体 |
+| `extract` | 响应变量提取，例如 `{"token":"data.access_token"}` |
+| `expected_status` | 预期 HTTP 状态码 |
+| `expected_code` | 预期业务响应码 |
+| `expected_message` | 预期响应 message |
+| `expected_fields` | JSON 字段断言，例如 `{"data.status":"ISSUED"}` |
+| `depends_on` | 依赖用例编号，用于多接口串联 |
+| `description` | 用例说明 |
+
+变量提取后，可以在后续用例中使用：
+
+```json
+{"Authorization": "Bearer ${token}"}
+```
+
+## 生成 Excel 模板
+
+```powershell
+python api_tests\tools\generate_insurance_cases_excel.py
+```
+
+注意：这个命令会覆盖 `api_tests\data\insurance_api_cases.xlsx`，只在需要重置模板时执行。
+
+## 读取 dev-master 生成接口契约
+
+这个命令会从 Git 中导出 `dev-master` 分支代码到临时目录，然后读取 Django 的 URL、View、Serializer，生成接口路径、请求字段、校验条件和响应字段。
+
+```powershell
+python api_tests\tools\generate_api_contract.py
+```
+
+输出文件：
+
+```text
+api_tests\reports\api_contract.json
+```
+
+可配置项：
+
+```powershell
+$env:BACKEND_BRANCH="dev-master"
+$env:BACKEND_SOURCE_DIR="E:\aitesthub_backend"
+python api_tests\tools\generate_api_contract.py
+```
+
+说明：
+
+- `BACKEND_BRANCH`：默认读取 `dev-master`。
+- `BACKEND_SOURCE_DIR`：如果你有一个单独的后端工作区，可以直接指定目录；不指定时会从 Git 临时导出 `dev-master`。
+
+## 分析 dev-master 的 Git 变化
+
+查看 `dev-master` 最新一次提交改了哪些接口相关文件：
+
+```powershell
+python api_tests\tools\inspect_git_api_changes.py
+```
+
+默认等价于对比：
+
+```text
+dev-master~1..dev-master
+```
+
+也可以指定对比范围：
+
+```powershell
+$env:BACKEND_DIFF_BASE="dev-master~3"
+$env:BACKEND_DIFF_TARGET="dev-master"
+python api_tests\tools\inspect_git_api_changes.py
+```
+
+这个工具会告诉你哪些变更可能需要补充 Excel 用例，例如路由变化、入参校验变化、业务逻辑变化、响应字段变化等。
