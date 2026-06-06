@@ -47,12 +47,18 @@ class InsuranceCacheTests(SimpleTestCase):
         self.assertIsNone(get_detail_cache('premium_quote', 'QT20260606000001'))
 
 
+@override_settings(CACHES=TEST_CACHES, INSURANCE_TOKEN_AUTH_ENABLED=True, INSURANCE_API_KEY='')
 class InsuranceWriteCacheTests(TestCase):
     def tearDown(self):
         cache.clear()
 
+    def auth_headers(self):
+        response = Client().post('/api/insurance/auth/token/')
+        token = response.json()['data']['access_token']
+        return {'HTTP_AUTHORIZATION': f'Bearer {token}'}
+
     def test_product_catalog_returns_default_product_config(self):
-        response = Client().get('/api/insurance/products/')
+        response = Client().get('/api/insurance/products/', **self.auth_headers())
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
@@ -60,7 +66,7 @@ class InsuranceWriteCacheTests(TestCase):
         self.assertEqual(body['data'][0]['product_code'], 'PA_C_ACCIDENT')
         self.assertEqual(body['data'][0]['plans'][0]['plan_code'], 'BASIC')
 
-    @override_settings(CACHES=TEST_CACHES, INSURANCE_DETAIL_CACHE_TIMEOUT=60)
+    @override_settings(INSURANCE_DETAIL_CACHE_TIMEOUT=60)
     def test_premium_trial_writes_detail_cache_after_create(self):
         response = Client().post(
             '/api/insurance/premium-trials/',
@@ -89,6 +95,7 @@ class InsuranceWriteCacheTests(TestCase):
                 'channel_code': 'C_APP',
             }),
             content_type='application/json',
+            **self.auth_headers(),
         )
 
         self.assertEqual(response.status_code, 201)
@@ -100,10 +107,45 @@ class InsuranceWriteCacheTests(TestCase):
         self.assertIsNotNone(cached)
         self.assertEqual(cached['quote_no'], quote_no)
         self.assertEqual(cached['plan_code'], 'STANDARD')
+        self.assertRegex(body['data']['created_at'], r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$')
+        self.assertNotIn('T', body['data']['created_at'])
+        self.assertNotIn('+08:00', body['data']['created_at'])
+
+
+class InsuranceTokenTests(TestCase):
+    def tearDown(self):
+        cache.clear()
+
+    @override_settings(CACHES=TEST_CACHES, INSURANCE_TOKEN_AUTH_ENABLED=True, INSURANCE_API_KEY='', INSURANCE_TOKEN_TTL=60)
+    def test_token_endpoint_returns_random_tokens(self):
+        first = Client().post('/api/insurance/auth/token/').json()['data']
+        second = Client().post('/api/insurance/auth/token/').json()['data']
+
+        self.assertEqual(first['token_type'], 'Bearer')
+        self.assertEqual(first['expires_in'], 60)
+        self.assertNotEqual(first['access_token'], second['access_token'])
+
+    @override_settings(CACHES=TEST_CACHES, INSURANCE_TOKEN_AUTH_ENABLED=True, INSURANCE_API_KEY='')
+    def test_x_insurance_token_accepts_bearer_prefix(self):
+        token = Client().post('/api/insurance/auth/token/').json()['data']['access_token']
+
+        response = Client().get('/api/insurance/products/', HTTP_X_INSURANCE_TOKEN=f'Bearer {token}')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['code'], 200)
+
+    @override_settings(CACHES=TEST_CACHES, INSURANCE_TOKEN_AUTH_ENABLED=True, INSURANCE_API_KEY='')
+    def test_token_auth_rejects_missing_token(self):
+        response = Client().get('/api/insurance/products/')
+
+        self.assertIn(response.status_code, [401, 403])
+        body = response.json()
+        self.assertEqual(body['code'], 999)
+        self.assertEqual(body['message'], '接口鉴权失败')
 
 
 class InsuranceCryptoTests(SimpleTestCase):
-    @override_settings(INSURANCE_API_KEY='secret-test-key')
+    @override_settings(INSURANCE_TOKEN_AUTH_ENABLED=False, INSURANCE_API_KEY='secret-test-key')
     def test_insurance_api_key_rejects_missing_key(self):
         response = Client().get('/api/insurance/products/')
 
@@ -167,7 +209,7 @@ class InsuranceCryptoTests(SimpleTestCase):
             with self.assertRaises(InsuranceCryptoError):
                 decrypt_payload(envelope)
 
-    @override_settings(INSURANCE_CRYPTO_KEY='test-insurance-key')
+    @override_settings(INSURANCE_TOKEN_AUTH_ENABLED=False, INSURANCE_CRYPTO_KEY='test-insurance-key')
     def test_encrypted_request_gets_encrypted_validation_error(self):
         envelope = encrypt_payload({'product_code': 'PA_C_ACCIDENT'})
 

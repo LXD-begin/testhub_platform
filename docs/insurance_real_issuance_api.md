@@ -15,7 +15,7 @@
 - 响应格式：统一返回 `{code, message, data}`。
 - 成功响应：`code` 固定为 `200`，`message` 为 `成功`，`data` 为对应业务对象。
 - 异常响应：`code` 固定为 `999`，`message` 为失败原因，`data` 为字段错误、错误类型或空。
-- 鉴权：默认不启用；配置 `INSURANCE_API_KEY` 后，必须传 `X-Insurance-API-Key` 或 `Authorization: Bearer <key>`。
+- 鉴权：默认启用随机 token；先调用 `POST /api/insurance/auth/token/` 获取 `access_token`，再传 `Authorization: Bearer <access_token>`。`INSURANCE_API_KEY` 仅作为内部系统固定密钥绕过 token 校验。
 - 产品配置：产品、计划、保障责任、年龄费率、职业费率已落表，试算接口会读取数据库配置，不再依赖代码里的产品字典。
 - 产品查询：`GET /api/insurance/products/` 查询在售产品列表，`GET /api/insurance/products/{product_code}/` 查询单个产品详情。
 - 本文档后续接口响应示例中的业务对象，均表示统一响应外层 `data` 中的内容。
@@ -139,7 +139,7 @@
     "payable_premium": "189.05"
   },
   "status": "QUOTED",
-  "valid_until": "2026-06-05T13:30:00+08:00"
+  "valid_until": "2026-06-05 13:30:00"
 }
 ```
 
@@ -218,7 +218,7 @@
   "premium_detail": {
     "payable_premium": "189.05"
   },
-  "created_at": "2026-06-05T13:00:00+08:00"
+  "created_at": "2026-06-05 13:00:00"
 }
 ```
 
@@ -260,7 +260,7 @@
     "自动核保规则通过"
   ],
   "manual_review_required": false,
-  "valid_until": "2026-06-06T13:00:00+08:00"
+  "valid_until": "2026-06-06 13:00:00"
 }
 ```
 
@@ -305,7 +305,7 @@
     "人工复核健康告知材料后同意承保"
   ],
   "reviewer": "underwriter01",
-  "reviewed_at": "2026-06-05T13:10:00+08:00"
+  "reviewed_at": "2026-06-05 13:10:00"
 }
 ```
 
@@ -393,7 +393,7 @@
   "amount": "189.05",
   "status": "SUCCESS",
   "external_trade_no": "WX202606051300000001",
-  "paid_at": "2026-06-05T13:15:00+08:00"
+  "paid_at": "2026-06-05 13:15:00"
 }
 ```
 

@@ -42,11 +42,22 @@ from .services import (
     submit_application_underwriting,
     underwrite,
 )
+from .tokens import issue_insurance_token, token_timeout, validate_insurance_token
 
 
 TRUE_VALUES = {'1', 'true', 'yes', 'on'}
 SUCCESS_CODE = 200
 ERROR_CODE = 999
+
+
+def bearer_value(value):
+    """兼容 Authorization 和自定义 token header 中的 Bearer 写法。"""
+    if not value:
+        return ''
+    value = value.strip()
+    if value.lower().startswith('bearer '):
+        return value[7:].strip()
+    return value
 
 
 class EncryptedInsuranceAPIView(APIView):
@@ -56,17 +67,27 @@ class EncryptedInsuranceAPIView(APIView):
     """
 
     encrypted_request_attr = '_insurance_request_encrypted'
+    skip_auth = False
 
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)
-        expected_api_key = getattr(settings, 'INSURANCE_API_KEY', '')
-        if not expected_api_key:
+        if self.skip_auth:
             return
 
+        expected_api_key = getattr(settings, 'INSURANCE_API_KEY', '')
         authorization = request.headers.get('Authorization', '')
-        bearer_token = authorization.removeprefix('Bearer ').strip() if authorization.startswith('Bearer ') else ''
-        provided_api_key = request.headers.get('X-Insurance-API-Key') or bearer_token
-        if provided_api_key != expected_api_key:
+        bearer_token = bearer_value(authorization)
+        provided_api_key = request.headers.get('X-Insurance-API-Key')
+        if expected_api_key and (provided_api_key == expected_api_key or bearer_token == expected_api_key):
+            return
+
+        if getattr(settings, 'INSURANCE_TOKEN_AUTH_ENABLED', True):
+            provided_token = bearer_value(request.headers.get('X-Insurance-Token')) or bearer_token
+            if validate_insurance_token(provided_token):
+                return
+            raise AuthenticationFailed('接口鉴权失败')
+
+        if expected_api_key and bearer_token != expected_api_key:
             raise AuthenticationFailed('接口鉴权失败')
 
     def success_payload(self, data, message='成功'):
@@ -670,6 +691,26 @@ class PolicyDetailView(EncryptedInsuranceAPIView):
             policy_no,
             lambda: get_object_or_404(Policy, policy_no=policy_no),
             PolicySerializer,
+        )
+
+
+class InsuranceTokenView(EncryptedInsuranceAPIView):
+    """接口：POST /api/insurance/auth/token/。
+
+    用途：无需登录，生成一个随机接口 token；后续保险接口调用需放到 Authorization Bearer 或 X-Insurance-Token。
+    """
+
+    skip_auth = True
+
+    def post(self, request):
+        token = issue_insurance_token()
+        return self.insurance_response(
+            request,
+            {
+                'access_token': token,
+                'token_type': 'Bearer',
+                'expires_in': token_timeout(),
+            },
         )
 
 

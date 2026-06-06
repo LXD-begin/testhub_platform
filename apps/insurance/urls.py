@@ -4,6 +4,7 @@ from .views import (
     ApplicationUnderwritingView,
     InsuranceApplicationDetailView,
     InsuranceApplicationView,
+    InsuranceTokenView,
     IssueApplicationPolicyView,
     IssuePolicyView,
     ManualUnderwritingReviewView,
@@ -20,6 +21,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path('auth/token/', InsuranceTokenView.as_view(), name='insurance-token'),
     path('products/', ProductListView.as_view(), name='product-list'),
     path('products/<str:product_code>/', ProductDetailView.as_view(), name='product-detail'),
     path('premium-trials/', PremiumTrialView.as_view(), name='premium-trial'),

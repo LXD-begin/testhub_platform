@@ -12,9 +12,9 @@
 | 请求格式 | `application/json` |
 | 响应格式 | 统一 JSON 外层结构：`code`、`message`、`data` |
 | 日期格式 | `YYYY-MM-DD`，例如 `2026-06-06` |
-| 日期时间格式 | ISO 8601，例如 `2026-06-06T10:30:00+08:00` |
+| 日期时间格式 | `YYYY-MM-DD HH:MM:SS`，例如 `2026-06-06 10:30:00` |
 | 金额格式 | 字符串或数字均可传入校验，响应中金额通常为保留 2 位小数的字符串 |
-| 认证 | 默认不启用；配置 `INSURANCE_API_KEY` 后必须传 `X-Insurance-API-Key` 或 `Authorization: Bearer <key>` |
+| 认证 | 默认启用随机 token；先调用 `POST /api/insurance/auth/token/` 获取 token，再传 `Authorization: Bearer <access_token>` |
 
 ### 1.2 统一响应结构
 
@@ -155,18 +155,19 @@ GET 接口如需加密响应，也可加：
 | `POST /api/insurance/underwriting/` | 旧版核保记录，并刷新关联试算单 |
 | `POST /api/insurance/policies/` | 旧版保单，并刷新关联试算单、核保记录 |
 
-### 1.6 API Key 鉴权约定
+### 1.6 Token 鉴权约定
 
-`.env` 中 `INSURANCE_API_KEY` 留空时，本地开发和接口测试可直接请求。配置后，所有继承保险接口基类的接口都会校验 API Key。
+默认启用随机 token 鉴权。调用业务接口前，先调用获取 token 接口。每次调用获取 token 接口都会生成新的随机 token。
 
-请求头二选一：
+业务接口请求头二选一：
 
 ```http
-X-Insurance-API-Key: your-api-key
-Authorization: Bearer your-api-key
+Authorization: Bearer <access_token>
+X-Insurance-Token: <access_token>
+X-Insurance-Token: Bearer <access_token>
 ```
 
-缺少或错误时返回：
+token 缺少、错误或过期时返回：
 
 ```json
 {
@@ -176,6 +177,13 @@ Authorization: Bearer your-api-key
     "detail": "接口鉴权失败"
   }
 }
+```
+
+如果 `.env` 配置了 `INSURANCE_API_KEY`，内部系统也可以直接传以下任一请求头绕过随机 token 校验：
+
+```http
+X-Insurance-API-Key: your-api-key
+Authorization: Bearer your-api-key
 ```
 
 ## 2. 公共字段定义
@@ -255,14 +263,66 @@ Authorization: Bearer your-api-key
 推荐主流程：
 
 ```text
+获取 token -> 查询产品配置 -> 保费试算 -> 创建投保单 -> 投保单核保 -> 人工核保(可选) -> 创建支付订单 -> 支付回调确认 -> 承保出单 -> 查询保单
+```
+
+## 3.0 鉴权 token
+
+### 接口
+
+```http
+POST /api/insurance/auth/token/
+```
+
+### 用途
+
+无需登录，生成一个随机接口 token。该 token 会写入 Redis/Django cache，有效期由 `.env` 的 `INSURANCE_TOKEN_TTL` 控制，默认 `7200` 秒。
+
+### 请求参数
+
+无请求体。
+
+### 成功响应
+
+状态码：`200`
+
+| 字段 | 类型 | 含义 |
+| --- | --- | --- |
+| `access_token` | string | 随机 token，每次调用都会不同 |
+| `token_type` | string | 固定为 `Bearer` |
+| `expires_in` | integer | token 有效期，单位秒 |
+
+响应示例：
+
+```json
+{
+  "code": 200,
+  "message": "成功",
+  "data": {
+    "access_token": "random-token",
+    "token_type": "Bearer",
+    "expires_in": 7200
+  }
+}
+```
+
+后续业务接口请求头：
+
+```http
+Authorization: Bearer random-token
+```
+
+旧主流程：
+
+```text
 保费试算 -> 创建投保单 -> 投保单核保 -> 人工核保(可选) -> 创建支付订单 -> 支付回调确认 -> 承保出单 -> 查询保单
 ```
 
-## 3.0 产品配置查询
+## 3.0.1 产品配置查询
 
 真实投保流程里，前端通常先查询产品、计划、保障责任和费率配置，再进入试算。当前项目已把产品、计划、责任、年龄费率和职业费率落到数据库配置表。
 
-### 3.0.1 查询产品列表
+### 3.0.1.1 查询产品列表
 
 ### 接口
 
@@ -314,7 +374,7 @@ GET /api/insurance/products/
 | `description` | string | 责任说明 |
 | `sort_order` | integer | 展示排序 |
 
-### 3.0.2 查询产品详情
+### 3.0.1.2 查询产品详情
 
 ### 接口
 
@@ -468,8 +528,8 @@ POST /api/insurance/premium-trials/
   "effective_date": "2026-06-06",
   "expiry_date": "2027-06-01",
   "status": "QUOTED",
-  "valid_until": "2026-06-06T10:30:00+08:00",
-  "created_at": "2026-06-06T10:00:00+08:00"
+  "valid_until": "2026-06-06 10:30:00",
+  "created_at": "2026-06-06 10:00:00"
 }
 ```
 
@@ -1172,7 +1232,7 @@ POST /api/insurance/policies/
     "pay_order_no": "PAY-MOCK-001",
     "pay_status": "SUCCESS",
     "paid_amount": "189.05",
-    "paid_time": "2026-06-06T10:30:00+08:00",
+    "paid_time": "2026-06-06 10:30:00",
     "pay_channel": "WECHAT"
   },
   "delivery": {

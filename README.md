@@ -89,6 +89,8 @@ DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
 INSURANCE_CRYPTO_KEY=replace-with-a-strong-insurance-api-key
 INSURANCE_API_KEY=
+INSURANCE_TOKEN_AUTH_ENABLED=True
+INSURANCE_TOKEN_TTL=7200
 
 DB_HOST=127.0.0.1
 DB_PORT=3306
@@ -192,6 +194,18 @@ http://127.0.0.1:8000/
 /api/insurance/
 ```
 
+获取随机 token：
+
+```text
+POST /api/insurance/auth/token/
+```
+
+调用其他保险接口时带：
+
+```http
+Authorization: Bearer <access_token>
+```
+
 产品配置查询：
 
 ```text
@@ -249,6 +263,20 @@ python manage.py test
 X-Insurance-API-Key: your-api-key
 Authorization: Bearer your-api-key
 ```
+
+默认启用随机 token 鉴权。先调用：
+
+```http
+POST /api/insurance/auth/token/
+```
+
+响应中的 `access_token` 每次都会随机生成，后续接口带：
+
+```http
+Authorization: Bearer <access_token>
+```
+
+`INSURANCE_API_KEY` 只作为内部系统固定密钥绕过 token 校验使用；不需要可以保持为空。
 
 ## 接口文档
 

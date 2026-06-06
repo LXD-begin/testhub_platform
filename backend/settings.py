@@ -47,6 +47,8 @@ ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', '*')
 
 INSURANCE_CRYPTO_KEY = os.environ.get('INSURANCE_CRYPTO_KEY', SECRET_KEY)
 INSURANCE_API_KEY = os.environ.get('INSURANCE_API_KEY', '')
+INSURANCE_TOKEN_AUTH_ENABLED = env_bool('INSURANCE_TOKEN_AUTH_ENABLED', True)
+INSURANCE_TOKEN_TTL = env_int('INSURANCE_TOKEN_TTL', 7200)
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -138,6 +140,8 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.FormParser',
         'rest_framework.parsers.MultiPartParser',
     ],
+    'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
+    'DATE_FORMAT': '%Y-%m-%d',
 }
 
 CACHES = {

@@ -6,10 +6,12 @@
 
 ### 1. 接口鉴权
 
-已增加可选 API Key 鉴权：
+已增加无登录随机 token 鉴权：
 
-- `.env` 中 `INSURANCE_API_KEY` 为空时，本地开发不启用鉴权。
-- 配置 `INSURANCE_API_KEY` 后，保险接口必须传 `X-Insurance-API-Key` 或 `Authorization: Bearer <key>`。
+- `POST /api/insurance/auth/token/` 每次生成一个随机 `access_token`。
+- token 写入 Redis/Django cache，有效期由 `INSURANCE_TOKEN_TTL` 控制，默认 7200 秒。
+- 业务接口必须传 `Authorization: Bearer <access_token>` 或 `X-Insurance-Token`。
+- `INSURANCE_API_KEY` 保留为内部系统固定密钥绕过 token 校验。
 - 鉴权失败仍返回统一响应结构：`code=999`。
 
 ### 2. 产品和费率配置表

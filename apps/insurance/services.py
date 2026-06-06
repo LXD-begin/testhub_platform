@@ -44,6 +44,12 @@ def json_safe(value):
     return value
 
 
+def format_datetime(value):
+    if not value:
+        return None
+    return timezone.localtime(value).strftime('%Y-%m-%d %H:%M:%S')
+
+
 def date_from_id_no(person):
     id_no = person.get('id_no', '')
     if person.get('id_type') == 'IDENTITY_CARD' and len(id_no) == 18:
@@ -628,7 +634,7 @@ def issue_policy_from_application(validated_data):
         'pay_order_no': payment_order.pay_order_no,
         'pay_status': payment_order.status,
         'paid_amount': money(payment_order.amount),
-        'paid_time': payment_order.paid_at.isoformat() if payment_order.paid_at else None,
+        'paid_time': format_datetime(payment_order.paid_at),
         'pay_channel': payment_order.pay_channel,
         'external_trade_no': payment_order.external_trade_no,
         'delivery': delivery,
